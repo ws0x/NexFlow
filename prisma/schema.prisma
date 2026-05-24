@@ -1,0 +1,227 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─── Enums ───────────────────────────────────────────────────────────────────
+
+enum Role {
+  SUPER_ADMIN
+  MANAGER
+  MARKETING
+  SALES
+}
+
+enum LeadStatus {
+  DRAFT
+  SUBMITTED
+  SENT_TO_SALES
+  COMPLETED
+}
+
+// ─── Users ───────────────────────────────────────────────────────────────────
+
+model User {
+  id        String   @id @default(cuid())
+  name      String
+  email     String   @unique
+  password  String
+  role      Role
+  phone     String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  businessUnits UserBusinessUnit[]
+  departments   UserDepartment[]
+  leadsCreated  Lead[]             @relation("LeadCreatedBy")
+  leadHistory   LeadHistory[]
+  notifications Notification[]
+
+  @@map("users")
+}
+
+// ─── Business Units ──────────────────────────────────────────────────────────
+
+model BusinessUnit {
+  id               String   @id @default(cuid())
+  name             String
+  prefix           String   @unique
+  coordinatorPhone String?
+  isActive         Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  users       UserBusinessUnit[]
+  leads       Lead[]
+  departments Department[]
+  sequences   LeadSequence[]
+
+  @@map("business_units")
+}
+
+model UserBusinessUnit {
+  userId         String
+  businessUnitId String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  businessUnit   BusinessUnit @relation(fields: [businessUnitId], references: [id], onDelete: Cascade)
+
+  @@id([userId, businessUnitId])
+  @@map("user_business_units")
+}
+
+// ─── Departments ─────────────────────────────────────────────────────────────
+
+model Department {
+  id             String        @id @default(cuid())
+  name           String
+  businessUnitId String?
+  businessUnit   BusinessUnit? @relation(fields: [businessUnitId], references: [id], onDelete: SetNull)
+  isActive       Boolean       @default(true)
+  order          Int           @default(0)
+  createdAt      DateTime      @default(now())
+
+  users UserDepartment[]
+  leads Lead[]
+
+  @@map("departments")
+}
+
+model UserDepartment {
+  userId       String
+  departmentId String
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  department   Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+
+  @@id([userId, departmentId])
+  @@map("user_departments")
+}
+
+// ─── Leads ───────────────────────────────────────────────────────────────────
+
+model Lead {
+  id          String     @id @default(cuid())
+  reqCode     String     @unique
+  leadStatus  LeadStatus @default(DRAFT)
+  requestDate DateTime   @default(now())
+
+  // Mutual fields
+  companyName      String
+  companyNameAr    String?
+  companyWebsite   String?
+  companyType      String?
+  companySector    String?
+  country          String?
+  city             String?
+  location         String?
+  contactName      String
+  contactNumber    String
+  contactEmail     String?
+  leadType         String?
+  newClient        Boolean @default(true)
+  internalReferral Boolean @default(false)
+  referralFrom     String?
+
+  // Marketing-only fields
+  leadRequest          String?
+  leadSource           String?
+  communicationChannel String?
+  marketingNotes       String?
+  directedToDeptId     String?
+  directedToDept       Department? @relation(fields: [directedToDeptId], references: [id], onDelete: SetNull)
+  sentToSales          Boolean     @default(false)
+  sentToSalesAt        DateTime?
+
+  // Sales-only fields
+  salesResponse     String?
+  salesResponseDate DateTime?
+  requestStatus     String   @default("Unknown Status")
+
+  // Metadata
+  businessUnitId String
+  businessUnit   BusinessUnit @relation(fields: [businessUnitId], references: [id])
+  createdById    String
+  createdBy      User         @relation("LeadCreatedBy", fields: [createdById], references: [id])
+  isImported     Boolean      @default(false)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  history       LeadHistory[]
+  notifications Notification[]
+
+  @@index([businessUnitId])
+  @@index([directedToDeptId])
+  @@index([leadStatus])
+  @@index([requestStatus])
+  @@index([requestDate])
+  @@map("leads")
+}
+
+// ─── Lead History (Audit Trail) ──────────────────────────────────────────────
+
+model LeadHistory {
+  id          String   @id @default(cuid())
+  leadId      String
+  lead        Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  fieldName   String
+  oldValue    String?
+  newValue    String?
+  changedById String
+  changedBy   User     @relation(fields: [changedById], references: [id])
+  changedAt   DateTime @default(now())
+
+  @@index([leadId])
+  @@map("lead_history")
+}
+
+// ─── Notifications ───────────────────────────────────────────────────────────
+
+model Notification {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  leadId    String?
+  lead      Lead?     @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  type      String
+  title     String
+  message   String
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+  @@map("notifications")
+}
+
+// ─── Dropdown Options ────────────────────────────────────────────────────────
+
+model DropdownOption {
+  id        String   @id @default(cuid())
+  category  String
+  value     String
+  valueAr   String?
+  order     Int      @default(0)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([category, value])
+  @@index([category])
+  @@map("dropdown_options")
+}
+
+// ─── Lead Sequences (REQ Code generation) ────────────────────────────────────
+
+model LeadSequence {
+  id             String       @id @default(cuid())
+  businessUnitId String
+  businessUnit   BusinessUnit @relation(fields: [businessUnitId], references: [id])
+  date           String
+  sequence       Int          @default(0)
+
+  @@unique([businessUnitId, date])
+  @@map("lead_sequences")
+}
