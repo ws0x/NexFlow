@@ -112,18 +112,5 @@ export function getDefaultPath(role: Role): string {
   }
 }
 
-// ─── Role labels ─────────────────────────────────────────────────────────────
-
-export const ROLE_LABELS: Record<Role, string> = {
-  [Role.SUPER_ADMIN]: 'Super Admin',
-  [Role.MANAGER]:     'Manager',
-  [Role.MARKETING]:   'Marketing',
-  [Role.SALES]:       'Sales',
-}
-
-export const ROLE_COLORS: Record<Role, string> = {
-  [Role.SUPER_ADMIN]: 'text-purple-400 bg-purple-400/10',
-  [Role.MANAGER]:     'text-blue-400 bg-blue-400/10',
-  [Role.MARKETING]:   'text-cyan-400 bg-cyan-400/10',
-  [Role.SALES]:       'text-green-400 bg-green-400/10',
-}
+// ─── Role labels (re-exported from roles.ts for server-side use) ─────────────
+export { ROLE_LABELS, ROLE_COLORS } from '@/lib/roles'

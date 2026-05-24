@@ -18,11 +18,12 @@ interface NavItem {
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { href: '/leads/new',  label: 'New Lead',    icon: PlusCircle,      roles: ['MARKETING', 'SUPER_ADMIN'] },
-  { href: '/leads',      label: 'Leads',       icon: List,            roles: ['MARKETING', 'SALES', 'MANAGER', 'SUPER_ADMIN'] },
-  { href: '/analytics',  label: 'Analytics',   icon: BarChart3,       roles: ['MANAGER', 'SUPER_ADMIN'] },
-  { href: '/admin',      label: 'Admin',        icon: Settings,        roles: ['SUPER_ADMIN'] },
-  { href: '/admin/users',label: 'Users',        icon: Users,           roles: ['SUPER_ADMIN'] },
+  { href: '/leads/new',               label: 'New Lead',       icon: PlusCircle, roles: ['MARKETING', 'SUPER_ADMIN'] },
+  { href: '/leads',                   label: 'Leads',          icon: List,       roles: ['MARKETING', 'SALES', 'MANAGER', 'SUPER_ADMIN'] },
+  { href: '/analytics',               label: 'Analytics',      icon: BarChart3,  roles: ['MANAGER', 'SUPER_ADMIN'] },
+  { href: '/admin',                   label: 'Admin',          icon: Settings,   roles: ['SUPER_ADMIN'] },
+  { href: '/admin/users',             label: 'Users',          icon: Users,      roles: ['SUPER_ADMIN'] },
+  { href: '/admin/business-units',    label: 'Business Units', icon: Database,   roles: ['SUPER_ADMIN'] },
 ]
 
 interface SidebarProps {
