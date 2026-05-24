@@ -2,23 +2,20 @@ import NextAuth from 'next-auth'
 import Credentials from 'next-auth/providers/credentials'
 import bcrypt from 'bcryptjs'
 import { db } from '@/lib/db'
-import { Role } from '@/generated/prisma/client'
+import { authConfig } from '@/lib/auth.config'
 import * as z from 'zod'
 
 const loginSchema = z.object({
-  email: z.email(),
+  email:    z.email(),
   password: z.string().min(6),
 })
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
-  session: { strategy: 'jwt' },
-  pages: {
-    signIn: '/login',
-  },
+  ...authConfig,
   providers: [
     Credentials({
       credentials: {
-        email: { label: 'Email', type: 'email' },
+        email:    { label: 'Email',    type: 'email'    },
         password: { label: 'Password', type: 'password' },
       },
       async authorize(credentials) {
@@ -29,7 +26,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           where: { email: parsed.data.email },
           include: {
             businessUnits: { include: { businessUnit: true } },
-            departments: { include: { department: true } },
+            departments:   { include: { department: true  } },
           },
         })
 
@@ -39,34 +36,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         if (!valid) return null
 
         return {
-          id: user.id,
-          name: user.name,
-          email: user.email,
-          role: user.role,
+          id:              user.id,
+          name:            user.name,
+          email:           user.email,
+          role:            user.role,
           businessUnitIds: user.businessUnits.map((ub: any) => ub.businessUnitId),
-          departmentIds: user.departments.map((ud: any) => ud.departmentId),
+          departmentIds:   user.departments.map((ud: any) => ud.departmentId),
         }
       },
     }),
   ],
-  callbacks: {
-    jwt({ token, user }) {
-      if (user) {
-        token.id = user.id
-        token.role = (user as any).role
-        token.businessUnitIds = (user as any).businessUnitIds
-        token.departmentIds = (user as any).departmentIds
-      }
-      return token
-    },
-    session({ session, token }) {
-      if (token) {
-        session.user.id = token.id as string
-        session.user.role = token.role as Role
-        session.user.businessUnitIds = token.businessUnitIds as string[]
-        session.user.departmentIds = token.departmentIds as string[]
-      }
-      return session
-    },
-  },
 })
