@@ -244,10 +244,10 @@ export function ImportWizard({ businessUnits }: Props) {
           </h3>
 
           <div className="grid grid-cols-2 gap-4">
-            {/* BU */}
+            {/* Entity */}
             <div>
               <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--nf-muted)' }}>
-                Target Business Unit
+                Target Entity
               </label>
               <select
                 value={buId}

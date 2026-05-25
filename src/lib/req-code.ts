@@ -24,7 +24,7 @@ export async function generateReqCode(businessUnitId: string): Promise<string> {
     where: { id: businessUnitId },
   })
 
-  if (!businessUnit) throw new Error('Business unit not found')
+  if (!businessUnit) throw new Error('Entity not found')
 
   const now = new Date()
   const year = String(now.getFullYear()).slice(-1)     // last digit of year: "5" for 2025
@@ -68,7 +68,7 @@ export async function generateReqCodeBatch(
   const businessUnit = await db.businessUnit.findUnique({
     where: { id: businessUnitId },
   })
-  if (!businessUnit) throw new Error('Business unit not found')
+  if (!businessUnit) throw new Error('Entity not found')
 
   const now     = new Date()
   const dateKey = format(now, 'yyyyMMdd')

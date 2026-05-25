@@ -86,7 +86,7 @@ export async function importLeads(
   const role = session.user.role as Role
   if (!canCreateLead(role)) throw new Error('Forbidden: only Marketing and Admin can import leads')
   if (!hasAccessToBusinessUnit(session.user, businessUnitId)) {
-    throw new Error('No access to this business unit')
+    throw new Error('No access to this entity')
   }
 
   const toProcess = rows.slice(0, MAX_ROWS)

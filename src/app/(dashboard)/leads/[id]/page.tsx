@@ -42,17 +42,27 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
 
   const stripped = stripLeadByRole(lead, role)
 
-  const departments = await db.department.findMany({
-    where: { isActive: true },
-    orderBy: { order: 'asc' },
-    select: { id: true, name: true },
-  })
+  const [departments, dropdownRows] = await Promise.all([
+    db.department.findMany({
+      where: { isActive: true },
+      orderBy: { order: 'asc' },
+      select: { id: true, name: true },
+    }),
+    db.dropdownOption.findMany({
+      where: {
+        isActive: true,
+        category: { in: ['REQUEST_STATUS', 'LEAD_SOURCE', 'COMMUNICATION_CHANNEL'] },
+      },
+      orderBy: { order: 'asc' },
+      select: { category: true, value: true },
+    }),
+  ])
 
-  const statusOptions = await db.dropdownOption.findMany({
-    where: { category: 'REQUEST_STATUS', isActive: true },
-    orderBy: { order: 'asc' },
-    select: { value: true },
-  })
+  const dropdownsByCategory = dropdownRows.reduce<Record<string, string[]>>((acc, d: any) => {
+    if (!acc[d.category]) acc[d.category] = []
+    acc[d.category].push(d.value)
+    return acc
+  }, {})
 
   const user = { name: session.user.name ?? 'User', role }
 
@@ -68,7 +78,9 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
           canEditLead={canEditMutualFields(role)}
           showSalesFields={canViewSalesFields(role)}
           showMarketingFields={canViewMarketingFields(role)}
-          statusOptions={statusOptions.map((s: any) => s.value)}
+          statusOptions={dropdownsByCategory['REQUEST_STATUS'] ?? []}
+          sourceOptions={dropdownsByCategory['LEAD_SOURCE'] ?? []}
+          channelOptions={dropdownsByCategory['COMMUNICATION_CHANNEL'] ?? []}
           departments={departments}
         />
       </div>

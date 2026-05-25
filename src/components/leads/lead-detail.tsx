@@ -39,7 +39,10 @@ interface Props {
   lead: Lead; role: Role
   canSendToSales: boolean; canEditSales: boolean; canEditLead: boolean
   showSalesFields: boolean; showMarketingFields: boolean
-  statusOptions: string[]; departments: { id: string; name: string }[]
+  statusOptions: string[]
+  sourceOptions: string[]
+  channelOptions: string[]
+  departments: { id: string; name: string }[]
 }
 
 type EditSection = 'company' | 'contact' | 'marketing' | null
@@ -49,7 +52,8 @@ type EditSection = 'company' | 'contact' | 'marketing' | null
 export function LeadDetail({
   lead, role,
   canSendToSales: canSend, canEditSales, canEditLead,
-  showSalesFields, showMarketingFields, statusOptions,
+  showSalesFields, showMarketingFields,
+  statusOptions, sourceOptions, channelOptions,
 }: Props) {
   const [isPending, startTransition] = useTransition()
   const [waUrl,      setWaUrl]       = useState<string | null>(null)
@@ -328,9 +332,11 @@ export function LeadDetail({
               {editSection === 'marketing' ? (
                 <div className="space-y-3">
                   <Grid2>
-                    <EField label="Source" value={marketingForm.leadSource}
+                    <ESelectField label="Source" value={marketingForm.leadSource}
+                      options={sourceOptions}
                       onChange={(v) => setMarketingForm((f) => ({ ...f, leadSource: v }))} />
-                    <EField label="Channel" value={marketingForm.communicationChannel}
+                    <ESelectField label="Channel" value={marketingForm.communicationChannel}
+                      options={channelOptions}
                       onChange={(v) => setMarketingForm((f) => ({ ...f, communicationChannel: v }))} />
                   </Grid2>
                   <EField label="Lead Request" value={marketingForm.leadRequest} multiline wide
@@ -588,6 +594,25 @@ function Field({ label, value, mono, wide }: {
       <p className={cn('text-sm', mono && 'font-mono')} style={{ color: 'var(--nf-text)' }}>
         {value || '—'}
       </p>
+    </div>
+  )
+}
+
+/** Editable select (dropdown) field */
+function ESelectField({ label, value, onChange, options, wide }: {
+  label: string; value: string; onChange: (v: string) => void
+  options: string[]; wide?: boolean
+}) {
+  return (
+    <div className={wide ? 'col-span-2' : ''}>
+      <label className="text-xs mb-1 block" style={{ color: 'var(--nf-muted)' }}>{label}</label>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="input-base text-sm h-9 w-full">
+        <option value="">— Select {label} —</option>
+        {options.map((o) => <option key={o} value={o}>{o}</option>)}
+      </select>
     </div>
   )
 }

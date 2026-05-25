@@ -2,7 +2,7 @@
 
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts'
 
-const BU_COLORS = ['#06B6D4', '#818CF8', '#F59E0B', '#22C55E', '#EF4444', '#F97316']
+const ENTITY_COLORS = ['#06B6D4', '#818CF8', '#F59E0B', '#22C55E', '#EF4444', '#F97316']
 
 type Point = { name: string; prefix: string; count: number }
 
@@ -24,14 +24,14 @@ function CustomTooltip({ active, payload }: any) {
   )
 }
 
-export function BUDonut({ data }: { data: Point[] }) {
+export function EntityDonut({ data }: { data: Point[] }) {
   const total = data.reduce((s, d) => s + d.count, 0)
 
   return (
     <div className="card p-5">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--nf-muted)' }}>
-          By Business Unit
+          By Entity
         </h3>
         <span className="text-xs" style={{ color: 'var(--nf-subtle)' }}>{total} leads</span>
       </div>
@@ -49,7 +49,7 @@ export function BUDonut({ data }: { data: Point[] }) {
             <Pie
               data={data}
               dataKey="count"
-              nameKey="prefix"
+              nameKey="name"
               cx="50%"
               cy="50%"
               innerRadius={52}
@@ -58,7 +58,7 @@ export function BUDonut({ data }: { data: Point[] }) {
               strokeWidth={0}
             >
               {data.map((_, i) => (
-                <Cell key={i} fill={BU_COLORS[i % BU_COLORS.length]} />
+                <Cell key={i} fill={ENTITY_COLORS[i % ENTITY_COLORS.length]} />
               ))}
             </Pie>
             <Tooltip content={<CustomTooltip />} />

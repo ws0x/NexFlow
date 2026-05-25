@@ -31,8 +31,10 @@ export async function GET(req: NextRequest) {
   }
 
   if (role === 'SALES') {
-    where.directedToDeptId = { in: session.user.departmentIds }
     where.sentToSales = true
+    if (session.user.departmentIds.length > 0) {
+      where.directedToDeptId = { in: session.user.departmentIds }
+    }
   }
 
   const q = sp.get('q')
@@ -120,7 +122,7 @@ export async function GET(req: NextRequest) {
     const row: Record<string, string | number | boolean> = {
       'REQ Code':      l.reqCode,
       'Request Date':  fmtDate(l.requestDate),
-      'Business Unit': `${l.businessUnit.prefix} — ${l.businessUnit.name}`,
+      'Entity':        `${l.businessUnit.prefix} — ${l.businessUnit.name}`,
       'Company (EN)':  l.companyName,
       'Company (AR)':  l.companyNameAr        ?? '',
       'Company Type':  l.companyType          ?? '',

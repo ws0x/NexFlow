@@ -40,7 +40,7 @@ export default async function AdminOverviewPage() {
       bg: '#06B6D420',
     },
     {
-      label: 'Business Units',
+      label: 'Entities',
       value: totalBUs,
       sub: 'All operational',
       icon: Building2,

@@ -9,8 +9,18 @@ import {
   CartesianGrid,
   Tooltip,
 } from 'recharts'
+import { useRouter, usePathname } from 'next/navigation'
+import { useCallback } from 'react'
 
 type Point = { label: string; count: number }
+
+const RANGES = [
+  { value: '7d',  label: '7D'  },
+  { value: '30d', label: '30D' },
+  { value: '3m',  label: '3M'  },
+  { value: '1y',  label: '1Y'  },
+  { value: 'all', label: 'All' },
+]
 
 function CustomTooltip({ active, payload, label }: any) {
   if (!active || !payload?.length) return null
@@ -30,7 +40,26 @@ function CustomTooltip({ active, payload, label }: any) {
   )
 }
 
-export function LeadsTimeline({ data, range }: { data: Point[]; range: string }) {
+export function LeadsTimeline({
+  data,
+  range,
+  currentBU = 'all',
+}: {
+  data: Point[]
+  range: string
+  currentBU?: string
+}) {
+  const router   = useRouter()
+  const pathname = usePathname()
+
+  const setRange = useCallback(
+    (newRange: string) => {
+      const p = new URLSearchParams({ range: newRange, bu: currentBU })
+      router.push(`${pathname}?${p.toString()}`)
+    },
+    [router, pathname, currentBU],
+  )
+
   // For 30-day ranges, only show every 5th label to avoid crowding
   const tickInterval = range === '30d' ? 4 : 'preserveStartEnd'
 
@@ -40,9 +69,31 @@ export function LeadsTimeline({ data, range }: { data: Point[]; range: string })
         <h3 className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--nf-muted)' }}>
           Leads Over Time
         </h3>
-        <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: '#06B6D415', color: '#06B6D4' }}>
-          {data.reduce((s, d) => s + d.count, 0)} total
-        </span>
+        <div className="flex items-center gap-2">
+          {/* Timeframe pills */}
+          <div
+            className="flex gap-0.5 p-0.5 rounded-lg"
+            style={{ background: 'var(--nf-surface-2)', border: '1px solid var(--nf-border)' }}
+          >
+            {RANGES.map(({ value, label }) => (
+              <button
+                key={value}
+                onClick={() => setRange(value)}
+                className="px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all"
+                style={
+                  range === value
+                    ? { background: 'var(--nf-accent)', color: '#0F172A' }
+                    : { color: 'var(--nf-subtle)' }
+                }
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: '#06B6D415', color: '#06B6D4' }}>
+            {data.reduce((s, d) => s + d.count, 0)} total
+          </span>
+        </div>
       </div>
 
       <ResponsiveContainer width="100%" height={220}>

@@ -49,7 +49,7 @@ export function LeadsTable({ leads, total, page, pageSize }: LeadsTableProps) {
           <table className="w-full text-sm">
             <thead>
               <tr style={{ borderBottom: '1px solid var(--nf-border)', background: 'var(--nf-surface-2)' }}>
-                {['REQ Code', 'Date', 'Company', 'Contact', 'BU', 'Department', 'Status', ''].map((h) => (
+                {['REQ Code', 'Date', 'Company', 'Contact', 'Entity', 'Department', 'Status', ''].map((h) => (
                   <th key={h} className="px-4 py-2.5 text-left text-xs font-medium"
                     style={{ color: 'var(--nf-muted)' }}>
                     {h}
@@ -103,7 +103,7 @@ export function LeadsTable({ leads, total, page, pageSize }: LeadsTableProps) {
                     </p>
                   </td>
 
-                  {/* BU */}
+                  {/* Entity */}
                   <td className="px-4 py-3">
                     <span className={`badge ${getBUStyle(lead.businessUnit.prefix)}`}>
                       {lead.businessUnit.prefix}

@@ -5,7 +5,7 @@ import { updateBusinessUnit } from '@/app/actions/admin'
 import { toast } from 'sonner'
 import { Building2, Phone, Key, Users, FileText, Loader2, Check, X, Eye, EyeOff } from 'lucide-react'
 
-interface BUCardProps {
+interface EntityCardProps {
   bu: {
     id:               string
     name:             string
@@ -20,11 +20,12 @@ const PREFIX_COLORS: Record<string, { bg: string; color: string }> = {
   HSL: { bg: '#06B6D420', color: '#06B6D4' },
   MGL: { bg: '#818CF820', color: '#818CF8' },
   MKL: { bg: '#F59E0B20', color: '#F59E0B' },
+  HCL: { bg: '#F9731620', color: '#F97316' },
 }
 
 type EditField = 'phone' | 'apiKey' | null
 
-export function BUCard({ bu }: BUCardProps) {
+export function EntityCard({ bu }: EntityCardProps) {
   const [pending, startTransition] = useTransition()
   const [editing, setEditing]      = useState<EditField>(null)
   const [phone,   setPhone]        = useState(bu.coordinatorPhone   ?? '')
@@ -43,7 +44,7 @@ export function BUCard({ bu }: BUCardProps) {
     startTransition(async () => {
       try {
         await updateBusinessUnit(fd)
-        toast.success('Business unit updated')
+        toast.success('Entity updated')
         setEditing(null)
       } catch (err: any) {
         toast.error(err.message ?? 'Update failed')

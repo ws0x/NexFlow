@@ -12,7 +12,7 @@ async function main() {
   console.log('🌱 Seeding NexFlow database...')
 
   // ── Business Units ──────────────────────────────────────────────────────
-  const [hsl, mgl, mkl] = await Promise.all([
+  const [hsl, mgl, mkl, hcl] = await Promise.all([
     db.businessUnit.upsert({
       where: { prefix: 'HSL' },
       update: {},
@@ -27,6 +27,11 @@ async function main() {
       where: { prefix: 'MKL' },
       update: {},
       create: { name: 'EPPS', prefix: 'MKL' },
+    }),
+    db.businessUnit.upsert({
+      where: { prefix: 'HCL' },
+      update: {},
+      create: { name: 'MIG - Conv Components', prefix: 'HCL' },
     }),
   ])
 
@@ -146,7 +151,7 @@ async function main() {
     },
   })
 
-  // Assign admin to all BUs
+  // Assign admin to all entities
   await Promise.all([
     db.userBusinessUnit.upsert({
       where: { userId_businessUnitId: { userId: admin.id, businessUnitId: hsl.id } },
@@ -162,6 +167,11 @@ async function main() {
       where: { userId_businessUnitId: { userId: admin.id, businessUnitId: mkl.id } },
       update: {},
       create: { userId: admin.id, businessUnitId: mkl.id },
+    }),
+    db.userBusinessUnit.upsert({
+      where: { userId_businessUnitId: { userId: admin.id, businessUnitId: hcl.id } },
+      update: {},
+      create: { userId: admin.id, businessUnitId: hcl.id },
     }),
   ])
 

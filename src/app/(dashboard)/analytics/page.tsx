@@ -20,7 +20,7 @@ import { KPIStrip }       from '@/components/analytics/kpi-strip'
 import type { KPIData }   from '@/components/analytics/kpi-strip'
 import { LeadsTimeline }  from '@/components/analytics/leads-timeline'
 import { PipelineBars }   from '@/components/analytics/pipeline-bars'
-import { BUDonut }        from '@/components/analytics/bu-donut'
+import { EntityDonut }    from '@/components/analytics/entity-donut'
 import { SourcesChart }   from '@/components/analytics/sources-chart'
 import { StatusChart }    from '@/components/analytics/status-chart'
 import { SectorChart }    from '@/components/analytics/sector-chart'
@@ -292,7 +292,7 @@ export default async function AnalyticsPage({
     { label: 'Completed', count: currentLeads.filter((l) => l.leadStatus === 'COMPLETED').length,     color: '#22C55E' },
   ]
 
-  // BU breakdown
+  // Entity breakdown
   const buMap = new Map<string, { name: string; prefix: string; count: number }>()
   for (const l of currentLeads) {
     const entry = buMap.get(l.businessUnitId)
@@ -312,14 +312,14 @@ export default async function AnalyticsPage({
     companyName:  l.companyName,
     leadStatus:   l.leadStatus,
     requestStatus: l.requestStatus,
-    businessUnit: l.businessUnit.prefix,
+    businessUnit: l.businessUnit.name,
     requestDate:  format(l.requestDate, 'dd MMM yyyy'),
     leadSource:   l.leadSource,
   }))
 
   // ── Render ────────────────────────────────────────────────────────────────
   const activeBULabel =
-    buId !== 'all' ? allBUs.find((b) => b.id === buId)?.prefix : undefined
+    buId !== 'all' ? allBUs.find((b) => b.id === buId)?.name : undefined
 
   return (
     <div className="p-6 space-y-6" style={{ background: 'var(--nf-bg)', minHeight: '100vh' }}>
@@ -360,14 +360,14 @@ export default async function AnalyticsPage({
       {/* ── Primary charts: timeline + pipeline ────────────────────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="lg:col-span-2">
-          <LeadsTimeline data={timelineData} range={range} />
+          <LeadsTimeline data={timelineData} range={range} currentBU={buId} />
         </div>
         <PipelineBars data={pipelineData} />
       </div>
 
-      {/* ── Secondary charts: BU, sources, status ──────────────────────────── */}
+      {/* ── Secondary charts: Entity, sources, status ───────────────────────── */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <BUDonut    data={buData}     />
+        <EntityDonut data={buData}    />
         <SourcesChart data={sourcesData} />
         <StatusChart  data={statusData}  />
       </div>
@@ -393,7 +393,7 @@ export default async function AnalyticsPage({
           <table className="w-full text-sm">
             <thead>
               <tr style={{ borderBottom: '1px solid var(--nf-border)' }}>
-                {['REQ Code', 'Company', 'BU', 'Stage', 'Source', 'Date'].map((h) => (
+                {['REQ Code', 'Company', 'Entity', 'Stage', 'Source', 'Date'].map((h) => (
                   <th
                     key={h}
                     className="text-left py-2 px-3 text-xs font-semibold"

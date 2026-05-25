@@ -8,7 +8,7 @@ import { LayoutDashboard, Users, Building2, ChevronDown } from 'lucide-react'
 const TABS = [
   { href: '/admin',               label: 'Overview',       icon: LayoutDashboard },
   { href: '/admin/users',         label: 'Users',          icon: Users           },
-  { href: '/admin/business-units',label: 'Business Units', icon: Building2       },
+  { href: '/admin/entities',       label: 'Entities',       icon: Building2       },
   { href: '/admin/dropdowns',     label: 'Dropdowns',      icon: ChevronDown     },
 ]
 

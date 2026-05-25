@@ -156,7 +156,7 @@ export default async function LeadsPage({
             <p className="text-xs mt-0.5" style={{ color: 'var(--nf-muted)' }}>
               {role === 'SALES'
                 ? 'Leads directed to your department'
-                : 'All leads in your business units'}
+                : 'All leads in your entities'}
             </p>
           </div>
 

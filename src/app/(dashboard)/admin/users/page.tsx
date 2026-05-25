@@ -35,7 +35,7 @@ export default async function AdminUsersPage() {
         <table className="w-full text-sm">
           <thead>
             <tr style={{ borderBottom: '1px solid var(--nf-border)' }}>
-              {['Name', 'Role', 'Business Units', 'Departments', 'Status', ''].map((h) => (
+              {['Name', 'Role', 'Entities', 'Departments', 'Status', ''].map((h) => (
                 <th key={h}
                   className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider"
                   style={{ color: 'var(--nf-muted)' }}>

@@ -5,7 +5,7 @@
  *   1. Coordinator adds +34 644 60 49 48 to their WhatsApp contacts.
  *   2. They send the message: "I allow callmebot to send me messages"
  *   3. They receive their API key via WhatsApp.
- *   4. Admin saves the key in Business Unit → Coordinator API Key.
+ *   4. Admin saves the key in Entity → Coordinator API Key.
  *
  * API endpoint: GET https://api.callmebot.com/whatsapp.php?phone=PHONE&text=TEXT&apikey=KEY
  *

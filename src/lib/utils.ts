@@ -57,12 +57,13 @@ export const LEAD_STATUS_LABELS: Record<string, string> = {
   COMPLETED:     'Completed',
 }
 
-// ─── BU badge colors ──────────────────────────────────────────────────────────
+// ─── Entity badge colors ──────────────────────────────────────────────────────
 
 export const BU_STYLES: Record<string, string> = {
   HSL: 'bg-violet-500/15 text-violet-300',
   MGL: 'bg-emerald-500/15 text-emerald-300',
   MKL: 'bg-cyan-500/15 text-cyan-300',
+  HCL: 'bg-orange-500/15 text-orange-300',
 }
 
 export function getBUStyle(prefix: string): string {

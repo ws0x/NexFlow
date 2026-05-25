@@ -159,7 +159,24 @@ export async function resetUserPassword(userId: string, newPassword: string) {
   revalidatePath(`/admin/users/${userId}`)
 }
 
-// ─── Business Units ───────────────────────────────────────────────────────────
+// ─── Entities ─────────────────────────────────────────────────────────────────
+
+export async function createEntity(formData: FormData) {
+  await requireAdmin()
+
+  const name   = (formData.get('name')   as string)?.trim()
+  const prefix = (formData.get('prefix') as string)?.trim().toUpperCase()
+
+  if (!name || !prefix)    throw new Error('Name and prefix are required')
+  if (prefix.length > 6)   throw new Error('Prefix must be 6 characters or less')
+  if (!/^[A-Z0-9]+$/.test(prefix)) throw new Error('Prefix must contain only letters and numbers')
+
+  const existing = await db.businessUnit.findUnique({ where: { prefix } })
+  if (existing) throw new Error(`Prefix "${prefix}" is already in use`)
+
+  await db.businessUnit.create({ data: { name, prefix } })
+  revalidatePath('/admin/entities')
+}
 
 export async function updateBusinessUnit(formData: FormData) {
   await requireAdmin()
@@ -178,7 +195,7 @@ export async function updateBusinessUnit(formData: FormData) {
     },
   })
 
-  revalidatePath('/admin/business-units')
+  revalidatePath('/admin/entities')
 }
 
 // ─── Dropdowns ────────────────────────────────────────────────────────────────

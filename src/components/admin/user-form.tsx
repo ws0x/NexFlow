@@ -152,8 +152,8 @@ export function UserForm({ businessUnits, departments, user }: UserFormProps) {
           </Field>
         </div>
 
-        {/* Business Units */}
-        <Field label="Business Units" required>
+        {/* Entities */}
+        <Field label="Entities" required>
           <div className="flex flex-wrap gap-2 mt-1">
             {businessUnits.map((bu) => {
               const active = selectedBUs.includes(bu.id)
@@ -174,7 +174,7 @@ export function UserForm({ businessUnits, departments, user }: UserFormProps) {
             })}
           </div>
           {selectedBUs.length === 0 && (
-            <p className="text-xs mt-1" style={{ color: '#EF4444' }}>Select at least one BU</p>
+            <p className="text-xs mt-1" style={{ color: '#EF4444' }}>Select at least one Entity</p>
           )}
         </Field>
 

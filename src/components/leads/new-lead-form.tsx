@@ -1,12 +1,11 @@
 'use client'
 
 import { useState, useTransition, useRef } from 'react'
-import { useRouter } from 'next/navigation'
 import { createLead } from '@/app/actions/leads'
 import {
   Building2, User, FileText, Send,
   Mic, MicOff, ChevronRight, ChevronLeft,
-  Loader2, CheckCircle2, AlertCircle,
+  Loader2, CheckCircle2,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
@@ -17,8 +16,7 @@ interface Props {
   departments: { id: string; name: string }[]
 }
 
-interface FormData {
-  // Step 1 – Company
+interface FormState {
   businessUnitId: string
   companyName: string
   companyNameAr: string
@@ -28,7 +26,6 @@ interface FormData {
   country: string
   city: string
   location: string
-  // Step 2 – Contact
   contactName: string
   contactNumber: string
   contactEmail: string
@@ -36,23 +33,21 @@ interface FormData {
   newClient: boolean
   internalReferral: boolean
   referralFrom: string
-  // Step 3 – Lead Details
   leadRequest: string
   leadSource: string
   communicationChannel: string
   marketingNotes: string
-  // Step 4 – Routing
   directedToDeptId: string
 }
 
 const STEPS = [
-  { id: 1, label: 'Company',  icon: Building2 },
-  { id: 2, label: 'Contact',  icon: User },
-  { id: 3, label: 'Details',  icon: FileText },
-  { id: 4, label: 'Routing',  icon: Send },
+  { id: 1, label: 'Company', icon: Building2 },
+  { id: 2, label: 'Contact', icon: User },
+  { id: 3, label: 'Details', icon: FileText },
+  { id: 4, label: 'Routing', icon: Send },
 ]
 
-const INITIAL: FormData = {
+const INITIAL: FormState = {
   businessUnitId: '', companyName: '', companyNameAr: '', companyWebsite: '',
   companyType: '', companySector: '', country: '', city: '', location: '',
   contactName: '', contactNumber: '', contactEmail: '', leadType: '',
@@ -61,24 +56,130 @@ const INITIAL: FormData = {
   directedToDeptId: '',
 }
 
+// ─── Sub-components at module scope (prevents focus loss on parent re-render) ──
+
+interface FieldProps {
+  label: string
+  value: string
+  onChange: (v: string) => void
+  placeholder?: string
+  type?: string
+  required?: boolean
+  hint?: string
+  voice?: boolean
+  isListening?: boolean
+  onVoiceToggle?: () => void
+  error?: string
+}
+
+function Field({
+  label, value, onChange, placeholder, type = 'text',
+  required, hint, voice = true, isListening = false, onVoiceToggle, error,
+}: FieldProps) {
+  return (
+    <div className="space-y-1">
+      <label className="text-xs font-medium flex items-center gap-1"
+        style={{ color: 'var(--nf-muted)' }}>
+        {label}{required && <span style={{ color: '#EF4444' }}>*</span>}
+      </label>
+      <div className="relative">
+        <input
+          type={type}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={placeholder}
+          className={cn('input-base text-sm h-10', voice && onVoiceToggle && 'pr-10', error && 'border-red-500')}
+        />
+        {voice && onVoiceToggle && (
+          <button
+            type="button"
+            onClick={onVoiceToggle}
+            className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 rounded-md transition-colors"
+            style={{ color: isListening ? 'var(--nf-accent)' : 'var(--nf-subtle)' }}>
+            {isListening
+              ? <MicOff className="w-3.5 h-3.5 animate-pulse" />
+              : <Mic className="w-3.5 h-3.5" />}
+          </button>
+        )}
+      </div>
+      {error && <p className="text-xs" style={{ color: '#EF4444' }}>{error}</p>}
+      {hint && !error && <p className="text-xs" style={{ color: 'var(--nf-subtle)' }}>{hint}</p>}
+    </div>
+  )
+}
+
+interface SelectFieldProps {
+  label: string
+  value: string
+  onChange: (v: string) => void
+  options: string[]
+  placeholder?: string
+  required?: boolean
+  error?: string
+}
+
+function SelectField({ label, value, onChange, options, placeholder, required, error }: SelectFieldProps) {
+  return (
+    <div className="space-y-1">
+      <label className="text-xs font-medium flex items-center gap-1"
+        style={{ color: 'var(--nf-muted)' }}>
+        {label}{required && <span style={{ color: '#EF4444' }}>*</span>}
+      </label>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className={cn('input-base text-sm h-10', error && 'border-red-500')}>
+        <option value="">{placeholder ?? `Select ${label}`}</option>
+        {options.map((o) => <option key={o} value={o}>{o}</option>)}
+      </select>
+      {error && <p className="text-xs" style={{ color: '#EF4444' }}>{error}</p>}
+    </div>
+  )
+}
+
+interface ToggleProps {
+  label: string
+  value: boolean
+  onChange: (v: boolean) => void
+  hint?: string
+}
+
+function Toggle({ label, value, onChange, hint }: ToggleProps) {
+  return (
+    <div className="flex items-center justify-between py-2">
+      <div>
+        <p className="text-sm font-medium" style={{ color: 'var(--nf-text)' }}>{label}</p>
+        {hint && <p className="text-xs" style={{ color: 'var(--nf-subtle)' }}>{hint}</p>}
+      </div>
+      <button
+        type="button"
+        onClick={() => onChange(!value)}
+        className="relative w-10 h-5 rounded-full transition-colors shrink-0"
+        style={{ background: value ? 'var(--nf-accent)' : 'var(--nf-border)' }}>
+        <span className="absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-all duration-200"
+          style={{ left: value ? 'calc(100% - 18px)' : '2px' }} />
+      </button>
+    </div>
+  )
+}
+
+// ─── Main form component ──────────────────────────────────────────────────────
+
 export function NewLeadForm({ businessUnits, dropdowns, departments }: Props) {
-  const router = useRouter()
-  const [step, setStep] = useState(1)
-  const [form, setForm] = useState<FormData>(INITIAL)
-  const [errors, setErrors] = useState<Partial<Record<keyof FormData, string>>>({})
+  const [step, setStep]       = useState(1)
+  const [form, setForm]       = useState<FormState>(INITIAL)
+  const [errors, setErrors]   = useState<Partial<Record<keyof FormState, string>>>({})
   const [isPending, startTransition] = useTransition()
   const [isListening, setIsListening] = useState<string | null>(null)
+  const recognitionRef        = useRef<any>(null)
 
-  // ── Field updater ──────────────────────────────────────────────────────────
-  function set<K extends keyof FormData>(key: K, value: FormData[K]) {
+  function set<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((f) => ({ ...f, [key]: value }))
     setErrors((e) => { const n = { ...e }; delete n[key]; return n })
   }
 
-  // ── Voice input ────────────────────────────────────────────────────────────
-  const recognitionRef = useRef<any>(null)
-
-  function startVoice(field: keyof FormData) {
+  // ── Voice input ──────────────────────────────────────────────────────────────
+  function startVoice(field: keyof FormState) {
     if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
       toast.error('Voice input not supported in this browser')
       return
@@ -88,12 +189,11 @@ export function NewLeadForm({ businessUnits, dropdowns, departments }: Props) {
     rec.lang = 'en-US'
     rec.interimResults = false
     rec.onresult = (e: any) => {
-      const transcript = e.results[0][0].transcript
-      set(field, transcript as any)
+      set(field, e.results[0][0].transcript as any)
       setIsListening(null)
     }
     rec.onerror = () => setIsListening(null)
-    rec.onend = () => setIsListening(null)
+    rec.onend   = () => setIsListening(null)
     recognitionRef.current = rec
     rec.start()
     setIsListening(field)
@@ -104,30 +204,33 @@ export function NewLeadForm({ businessUnits, dropdowns, departments }: Props) {
     setIsListening(null)
   }
 
-  // ── Validation per step ────────────────────────────────────────────────────
+  /** Returns voice props for a given field */
+  function vp(field: keyof FormState) {
+    return {
+      isListening: isListening === field,
+      onVoiceToggle: () => isListening === field ? stopVoice() : startVoice(field),
+    }
+  }
+
+  // ── Validation ───────────────────────────────────────────────────────────────
   function validateStep(s: number): boolean {
     const errs: typeof errors = {}
     if (s === 1) {
-      if (!form.businessUnitId) errs.businessUnitId = 'Select a business unit'
-      if (!form.companyName.trim()) errs.companyName = 'Required'
+      if (!form.businessUnitId)      errs.businessUnitId = 'Select an entity'
+      if (!form.companyName.trim())  errs.companyName    = 'Required'
     }
     if (s === 2) {
-      if (!form.contactName.trim()) errs.contactName = 'Required'
+      if (!form.contactName.trim())   errs.contactName   = 'Required'
       if (!form.contactNumber.trim()) errs.contactNumber = 'Required'
-    }
-    if (s === 3) {
-      // leadRequest is optional but encouraged
     }
     setErrors(errs)
     return Object.keys(errs).length === 0
   }
 
-  function next() {
-    if (validateStep(step)) setStep((s) => s + 1)
-  }
+  function next() { if (validateStep(step)) setStep((s) => s + 1) }
   function back() { setStep((s) => s - 1) }
 
-  // ── Submit ─────────────────────────────────────────────────────────────────
+  // ── Submit ───────────────────────────────────────────────────────────────────
   function handleSubmit() {
     if (!validateStep(4)) return
     const fd = new FormData()
@@ -135,96 +238,12 @@ export function NewLeadForm({ businessUnits, dropdowns, departments }: Props) {
     startTransition(async () => {
       try {
         await createLead(fd)
-        // redirect happens inside the action
       } catch (e: any) {
+        // Re-throw Next.js redirect — it's not an error, it's navigation
+        if (e?.digest?.startsWith('NEXT_REDIRECT')) throw e
         toast.error(e.message ?? 'Failed to create lead')
       }
     })
-  }
-
-  // ── Shared field components ────────────────────────────────────────────────
-  function Field({
-    label, field, placeholder, type = 'text', required, hint, voice = true,
-  }: {
-    label: string; field: keyof FormData; placeholder?: string
-    type?: string; required?: boolean; hint?: string; voice?: boolean
-  }) {
-    const val = form[field] as string
-    const err = errors[field]
-    return (
-      <div className="space-y-1">
-        <label className="text-xs font-medium flex items-center gap-1"
-          style={{ color: 'var(--nf-muted)' }}>
-          {label}{required && <span style={{ color: '#EF4444' }}>*</span>}
-        </label>
-        <div className="relative">
-          <input
-            type={type}
-            value={val}
-            onChange={(e) => set(field, e.target.value as any)}
-            placeholder={placeholder}
-            className={cn('input-base text-sm h-10', voice && 'pr-10', err && 'border-red-500')}
-          />
-          {voice && (
-            <button
-              type="button"
-              onClick={() => isListening === field ? stopVoice() : startVoice(field)}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 rounded-md transition-colors"
-              style={{ color: isListening === field ? 'var(--nf-accent)' : 'var(--nf-subtle)' }}>
-              {isListening === field
-                ? <MicOff className="w-3.5 h-3.5 animate-pulse" />
-                : <Mic className="w-3.5 h-3.5" />}
-            </button>
-          )}
-        </div>
-        {err && <p className="text-xs" style={{ color: '#EF4444' }}>{err}</p>}
-        {hint && !err && <p className="text-xs" style={{ color: 'var(--nf-subtle)' }}>{hint}</p>}
-      </div>
-    )
-  }
-
-  function SelectField({
-    label, field, options, placeholder, required,
-  }: {
-    label: string; field: keyof FormData; options: string[]
-    placeholder?: string; required?: boolean
-  }) {
-    const err = errors[field]
-    return (
-      <div className="space-y-1">
-        <label className="text-xs font-medium flex items-center gap-1"
-          style={{ color: 'var(--nf-muted)' }}>
-          {label}{required && <span style={{ color: '#EF4444' }}>*</span>}
-        </label>
-        <select
-          value={form[field] as string}
-          onChange={(e) => set(field, e.target.value as any)}
-          className={cn('input-base text-sm h-10', err && 'border-red-500')}>
-          <option value="">{placeholder ?? `Select ${label}`}</option>
-          {options.map((o) => <option key={o} value={o}>{o}</option>)}
-        </select>
-        {err && <p className="text-xs" style={{ color: '#EF4444' }}>{err}</p>}
-      </div>
-    )
-  }
-
-  function Toggle({ label, field, hint }: { label: string; field: keyof FormData; hint?: string }) {
-    return (
-      <div className="flex items-center justify-between py-2">
-        <div>
-          <p className="text-sm font-medium" style={{ color: 'var(--nf-text)' }}>{label}</p>
-          {hint && <p className="text-xs" style={{ color: 'var(--nf-subtle)' }}>{hint}</p>}
-        </div>
-        <button
-          type="button"
-          onClick={() => set(field, !form[field] as any)}
-          className="relative w-10 h-5 rounded-full transition-colors shrink-0"
-          style={{ background: form[field] ? 'var(--nf-accent)' : 'var(--nf-border)' }}>
-          <span className="absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-all duration-200"
-            style={{ left: form[field] ? 'calc(100% - 18px)' : '2px' }} />
-        </button>
-      </div>
-    )
   }
 
   return (
@@ -280,17 +299,13 @@ export function NewLeadForm({ businessUnits, dropdowns, departments }: Props) {
         {/* Step 1 – Company */}
         {step === 1 && (
           <div className="space-y-4">
-            <StepHeader
-              icon={Building2}
-              title="Company Information"
-              subtitle="Details about the lead's company"
-            />
+            <StepHeader icon={Building2} title="Company Information" subtitle="Details about the lead's company" />
 
-            {/* BU selector */}
+            {/* Entity selector */}
             <div className="space-y-1">
               <label className="text-xs font-medium flex items-center gap-1"
                 style={{ color: 'var(--nf-muted)' }}>
-                Business Unit<span style={{ color: '#EF4444' }}>*</span>
+                Entity<span style={{ color: '#EF4444' }}>*</span>
               </label>
               <div className="flex gap-2 flex-wrap">
                 {businessUnits.map((bu) => (
@@ -314,14 +329,24 @@ export function NewLeadForm({ businessUnits, dropdowns, departments }: Props) {
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <Field label="Company Name (EN)" field="companyName" placeholder="e.g. Acme Corp" required />
-              <Field label="Company Name (AR)" field="companyNameAr" placeholder="اسم الشركة" voice={false} />
-              <Field label="Website" field="companyWebsite" placeholder="https://example.com" type="url" voice={false} />
-              <SelectField label="Company Type" field="companyType" options={dropdowns.COMPANY_TYPE ?? []} />
-              <SelectField label="Sector" field="companySector" options={dropdowns.COMPANY_SECTOR ?? []} />
-              <Field label="Country" field="country" placeholder="e.g. Egypt" />
-              <Field label="City" field="city" placeholder="e.g. Cairo" />
-              <Field label="Location / Address" field="location" placeholder="Street, area…" />
+              <Field label="Company Name (EN)" value={form.companyName}
+                onChange={(v) => set('companyName', v)} placeholder="e.g. Acme Corp"
+                required error={errors.companyName} {...vp('companyName')} />
+              <Field label="Company Name (AR)" value={form.companyNameAr}
+                onChange={(v) => set('companyNameAr', v)} placeholder="اسم الشركة" voice={false} />
+              <Field label="Website" value={form.companyWebsite}
+                onChange={(v) => set('companyWebsite', v)} placeholder="https://example.com"
+                type="url" voice={false} />
+              <SelectField label="Company Type" value={form.companyType}
+                onChange={(v) => set('companyType', v)} options={dropdowns.COMPANY_TYPE ?? []} />
+              <SelectField label="Sector" value={form.companySector}
+                onChange={(v) => set('companySector', v)} options={dropdowns.COMPANY_SECTOR ?? []} />
+              <Field label="Country" value={form.country}
+                onChange={(v) => set('country', v)} placeholder="e.g. Egypt" {...vp('country')} />
+              <Field label="City" value={form.city}
+                onChange={(v) => set('city', v)} placeholder="e.g. Cairo" {...vp('city')} />
+              <Field label="Location / Address" value={form.location}
+                onChange={(v) => set('location', v)} placeholder="Street, area…" {...vp('location')} />
             </div>
           </div>
         )}
@@ -331,19 +356,30 @@ export function NewLeadForm({ businessUnits, dropdowns, departments }: Props) {
           <div className="space-y-4">
             <StepHeader icon={User} title="Contact Information" subtitle="The person you spoke with" />
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <Field label="Contact Name" field="contactName" placeholder="Full name" required />
-              <Field label="Contact Number" field="contactNumber" placeholder="+20 1XX XXX XXXX" type="tel" required />
-              <Field label="Contact Email" field="contactEmail" placeholder="email@company.com" type="email" voice={false} />
-              <SelectField label="Lead Type" field="leadType" options={dropdowns.LEAD_TYPE ?? []} />
+              <Field label="Contact Name" value={form.contactName}
+                onChange={(v) => set('contactName', v)} placeholder="Full name"
+                required error={errors.contactName} {...vp('contactName')} />
+              <Field label="Contact Number" value={form.contactNumber}
+                onChange={(v) => set('contactNumber', v)} placeholder="+20 1XX XXX XXXX"
+                type="tel" required error={errors.contactNumber} {...vp('contactNumber')} />
+              <Field label="Contact Email" value={form.contactEmail}
+                onChange={(v) => set('contactEmail', v)} placeholder="email@company.com"
+                type="email" voice={false} />
+              <SelectField label="Lead Type" value={form.leadType}
+                onChange={(v) => set('leadType', v)} options={dropdowns.LEAD_TYPE ?? []} />
             </div>
             <div className="pt-2 space-y-1 rounded-lg p-3"
               style={{ background: 'var(--nf-surface-2)', border: '1px solid var(--nf-border)' }}>
-              <Toggle label="New Client?" field="newClient" hint="Is this a new business relationship?" />
+              <Toggle label="New Client?" value={form.newClient}
+                onChange={(v) => set('newClient', v)} hint="Is this a new business relationship?" />
               <div style={{ height: 1, background: 'var(--nf-border)' }} />
-              <Toggle label="Internal Referral?" field="internalReferral" hint="Was this lead referred internally?" />
+              <Toggle label="Internal Referral?" value={form.internalReferral}
+                onChange={(v) => set('internalReferral', v)} hint="Was this lead referred internally?" />
             </div>
             {form.internalReferral && (
-              <Field label="Referral From" field="referralFrom" placeholder="Who referred this lead?" />
+              <Field label="Referral From" value={form.referralFrom}
+                onChange={(v) => set('referralFrom', v)} placeholder="Who referred this lead?"
+                {...vp('referralFrom')} />
             )}
           </div>
         )}
@@ -356,10 +392,13 @@ export function NewLeadForm({ businessUnits, dropdowns, departments }: Props) {
               <label className="text-xs font-medium flex items-center gap-1"
                 style={{ color: 'var(--nf-muted)' }}>
                 Lead Request
-                <button type="button" onClick={() => isListening === 'leadRequest' ? stopVoice() : startVoice('leadRequest')}
+                <button type="button"
+                  onClick={() => isListening === 'leadRequest' ? stopVoice() : startVoice('leadRequest')}
                   className="ml-auto p-1 rounded transition-colors"
                   style={{ color: isListening === 'leadRequest' ? 'var(--nf-accent)' : 'var(--nf-subtle)' }}>
-                  {isListening === 'leadRequest' ? <MicOff className="w-3.5 h-3.5 animate-pulse" /> : <Mic className="w-3.5 h-3.5" />}
+                  {isListening === 'leadRequest'
+                    ? <MicOff className="w-3.5 h-3.5 animate-pulse" />
+                    : <Mic className="w-3.5 h-3.5" />}
                 </button>
               </label>
               <textarea
@@ -370,17 +409,22 @@ export function NewLeadForm({ businessUnits, dropdowns, departments }: Props) {
                 className="input-base text-sm resize-none" />
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <SelectField label="Lead Source" field="leadSource" options={dropdowns.LEAD_SOURCE ?? []} />
-              <SelectField label="Communication Channel" field="communicationChannel" options={dropdowns.COMMUNICATION_CHANNEL ?? []} />
+              <SelectField label="Lead Source" value={form.leadSource}
+                onChange={(v) => set('leadSource', v)} options={dropdowns.LEAD_SOURCE ?? []} />
+              <SelectField label="Communication Channel" value={form.communicationChannel}
+                onChange={(v) => set('communicationChannel', v)} options={dropdowns.COMMUNICATION_CHANNEL ?? []} />
             </div>
             <div className="space-y-1">
               <label className="text-xs font-medium flex items-center gap-1"
                 style={{ color: 'var(--nf-muted)' }}>
                 Marketing Notes (internal)
-                <button type="button" onClick={() => isListening === 'marketingNotes' ? stopVoice() : startVoice('marketingNotes')}
+                <button type="button"
+                  onClick={() => isListening === 'marketingNotes' ? stopVoice() : startVoice('marketingNotes')}
                   className="ml-auto p-1 rounded transition-colors"
                   style={{ color: isListening === 'marketingNotes' ? 'var(--nf-accent)' : 'var(--nf-subtle)' }}>
-                  {isListening === 'marketingNotes' ? <MicOff className="w-3.5 h-3.5 animate-pulse" /> : <Mic className="w-3.5 h-3.5" />}
+                  {isListening === 'marketingNotes'
+                    ? <MicOff className="w-3.5 h-3.5 animate-pulse" />
+                    : <Mic className="w-3.5 h-3.5" />}
                 </button>
               </label>
               <textarea
@@ -406,9 +450,7 @@ export function NewLeadForm({ businessUnits, dropdowns, departments }: Props) {
                   onClick={() => set('directedToDeptId', dept.id)}
                   className={cn(
                     'text-left px-4 py-3 rounded-lg border text-sm transition-all',
-                    form.directedToDeptId === dept.id
-                      ? 'text-cyan-300'
-                      : 'text-slate-400 hover:text-slate-200',
+                    form.directedToDeptId === dept.id ? 'text-cyan-300' : 'text-slate-400 hover:text-slate-200',
                   )}
                   style={{
                     borderColor: form.directedToDeptId === dept.id ? 'var(--nf-accent)' : 'var(--nf-border)',
@@ -419,16 +461,17 @@ export function NewLeadForm({ businessUnits, dropdowns, departments }: Props) {
               ))}
             </div>
 
-            {/* Summary preview */}
+            {/* Summary */}
             <div className="rounded-lg p-4 space-y-2 text-sm"
               style={{ background: 'var(--nf-surface-2)', border: '1px solid var(--nf-border)' }}>
               <p className="text-xs font-semibold uppercase tracking-wide mb-3"
                 style={{ color: 'var(--nf-subtle)' }}>Lead Summary</p>
               <SummaryRow label="Company" value={form.companyName} />
               <SummaryRow label="Contact" value={`${form.contactName} · ${form.contactNumber}`} />
-              <SummaryRow label="Business Unit"
+              <SummaryRow label="Entity"
                 value={businessUnits.find((b) => b.id === form.businessUnitId)?.name ?? '—'} />
-              <SummaryRow label="Source" value={[form.leadSource, form.communicationChannel].filter(Boolean).join(' → ')} />
+              <SummaryRow label="Source"
+                value={[form.leadSource, form.communicationChannel].filter(Boolean).join(' → ')} />
               <SummaryRow label="Department"
                 value={departments.find((d) => d.id === form.directedToDeptId)?.name ?? 'Not selected'} />
             </div>
@@ -438,10 +481,7 @@ export function NewLeadForm({ businessUnits, dropdowns, departments }: Props) {
 
       {/* ── Navigation ── */}
       <div className="flex items-center justify-between">
-        <button
-          type="button"
-          onClick={back}
-          disabled={step === 1}
+        <button type="button" onClick={back} disabled={step === 1}
           className="btn-outline h-10 px-5 text-sm disabled:opacity-30">
           <ChevronLeft className="w-4 h-4" /> Back
         </button>
@@ -451,10 +491,7 @@ export function NewLeadForm({ businessUnits, dropdowns, departments }: Props) {
             Next <ChevronRight className="w-4 h-4" />
           </button>
         ) : (
-          <button
-            type="button"
-            onClick={handleSubmit}
-            disabled={isPending}
+          <button type="button" onClick={handleSubmit} disabled={isPending}
             className="btn-primary h-10 px-6 text-sm">
             {isPending
               ? <><Loader2 className="w-4 h-4 animate-spin" /> Saving…</>
@@ -465,6 +502,8 @@ export function NewLeadForm({ businessUnits, dropdowns, departments }: Props) {
     </div>
   )
 }
+
+// ─── Utility sub-components ───────────────────────────────────────────────────
 
 function StepHeader({ icon: Icon, title, subtitle }: { icon: any; title: string; subtitle: string }) {
   return (
@@ -485,7 +524,8 @@ function SummaryRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex justify-between gap-4">
       <span className="text-xs" style={{ color: 'var(--nf-muted)' }}>{label}</span>
-      <span className="text-xs font-medium text-right" style={{ color: value ? 'var(--nf-text)' : 'var(--nf-subtle)' }}>
+      <span className="text-xs font-medium text-right"
+        style={{ color: value ? 'var(--nf-text)' : 'var(--nf-subtle)' }}>
         {value || '—'}
       </span>
     </div>

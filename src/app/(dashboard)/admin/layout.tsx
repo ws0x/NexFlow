@@ -18,7 +18,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           Administration
         </h1>
         <p className="text-sm mt-0.5" style={{ color: 'var(--nf-muted)' }}>
-          Manage users, business units, and system configuration
+          Manage users, entities, and system configuration
         </p>
       </div>
 

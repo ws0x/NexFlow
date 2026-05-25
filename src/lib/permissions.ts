@@ -61,7 +61,7 @@ export function canManageUsers(role: Role): boolean {
   return role === Role.SUPER_ADMIN
 }
 
-// ─── BU scope check ──────────────────────────────────────────────────────────
+// ─── Entity scope check ───────────────────────────────────────────────────────
 
 export function hasAccessToBusinessUnit(
   user: { role: Role; businessUnitIds: string[] },
@@ -77,6 +77,8 @@ export function hasAccessToDepartment(
 ): boolean {
   if (!departmentId) return true
   if (user.role === Role.SUPER_ADMIN || user.role === Role.MANAGER || user.role === Role.MARKETING) return true
+  // SALES entity-only access (no departments assigned) → can see all leads in their entities
+  if (user.departmentIds.length === 0) return true
   return user.departmentIds.includes(departmentId)
 }
 

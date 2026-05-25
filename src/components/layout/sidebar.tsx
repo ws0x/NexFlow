@@ -24,7 +24,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: '/analytics',               label: 'Analytics',      icon: BarChart3,  roles: ['MANAGER', 'SUPER_ADMIN'] },
   { href: '/admin',                   label: 'Admin',          icon: Settings,   roles: ['SUPER_ADMIN'] },
   { href: '/admin/users',             label: 'Users',          icon: Users,      roles: ['SUPER_ADMIN'] },
-  { href: '/admin/business-units',    label: 'Business Units', icon: Database,   roles: ['SUPER_ADMIN'] },
+  { href: '/admin/entities',           label: 'Entities',       icon: Database,   roles: ['SUPER_ADMIN'] },
 ]
 
 interface SidebarProps {
@@ -84,14 +84,14 @@ export function Sidebar({ user, businessUnits, collapsed }: SidebarProps) {
         )}
       </div>
 
-      {/* ── Business Unit chips ── */}
+      {/* ── Entity chips ── */}
       {!collapsed && businessUnits.length > 0 && (
         <div className="px-3 pt-3 pb-1 flex flex-wrap gap-1.5">
           {businessUnits.map((bu) => (
             <span key={bu.id}
               className="text-xs font-medium px-2 py-0.5 rounded-full"
               style={{ background: 'var(--nf-surface-2)', color: 'var(--nf-muted)', border: '1px solid var(--nf-border)' }}>
-              {bu.prefix}
+              {bu.name}
             </span>
           ))}
         </div>

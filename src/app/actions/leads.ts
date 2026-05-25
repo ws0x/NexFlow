@@ -40,7 +40,7 @@ const createLeadSchema = z.object({
   communicationChannel: z.string().optional(),
   marketingNotes:       z.string().optional(),
   directedToDeptId:     z.string().optional(),
-  businessUnitId:       z.string().min(1, { error: 'Business unit is required' }),
+  businessUnitId:       z.string().min(1, { error: 'Entity is required' }),
 })
 
 const updateSalesFieldsSchema = z.object({
@@ -66,7 +66,7 @@ export async function createLead(formData: FormData) {
   })
 
   if (!hasAccessToBusinessUnit(session.user, data.businessUnitId)) {
-    throw new Error('No access to this business unit')
+    throw new Error('No access to this entity')
   }
 
   const reqCode = await generateReqCode(data.businessUnitId)
@@ -96,7 +96,7 @@ export async function createLead(formData: FormData) {
   // Using void to avoid unhandled promise warnings.
   void (async () => {
     try {
-      // 1. Fetch BU details for WhatsApp + department name
+      // 1. Fetch Entity details for WhatsApp + department name
       const bu = await db.businessUnit.findUnique({
         where:  { id: data.businessUnitId },
         select: { name: true, coordinatorPhone: true, coordinatorApiKey: true },
@@ -199,7 +199,7 @@ export async function sendLeadToSales(leadId: string): Promise<{ waUrl: string }
     },
   })
 
-  // Notify managers of this BU
+  // Notify managers of this Entity
   const managers = await db.user.findMany({
     where: {
       role: { in: ['MANAGER', 'SUPER_ADMIN'] },
@@ -454,7 +454,7 @@ export async function getLeads(filters?: {
   const skip     = (page - 1) * pageSize
 
   const where: any = {
-    // BU scope
+    // Entity scope
     businessUnitId: {
       in: filters?.businessUnitId
         ? [filters.businessUnitId]
@@ -462,10 +462,13 @@ export async function getLeads(filters?: {
     },
   }
 
-  // Sales can only see leads directed to their departments
+  // Sales: always need sentToSales=true; department filter only if they have departments assigned
+  // (entity-only Sales users see all leads in their entities)
   if (role === 'SALES') {
-    where.directedToDeptId = { in: departmentIds }
     where.sentToSales = true
+    if (departmentIds.length > 0) {
+      where.directedToDeptId = { in: departmentIds }
+    }
   }
 
   if (filters?.status) where.requestStatus = filters.status

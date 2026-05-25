@@ -72,7 +72,7 @@ export function LeadsFilterBar({
   const chips: { label: string; key: string }[] = []
   if (currentFilters.buId) {
     const bu = businessUnits.find((b) => b.id === currentFilters.buId)
-    chips.push({ label: `BU: ${bu?.prefix ?? currentFilters.buId}`, key: 'buId' })
+    chips.push({ label: `Entity: ${bu?.prefix ?? currentFilters.buId}`, key: 'buId' })
   }
   if (currentFilters.status)  chips.push({ label: `Status: ${currentFilters.status}`,  key: 'status' })
   if (currentFilters.dateFrom) chips.push({ label: `From: ${currentFilters.dateFrom}`, key: 'dateFrom' })
@@ -110,13 +110,13 @@ export function LeadsFilterBar({
           )}
         </div>
 
-        {/* BU selector */}
+        {/* Entity selector */}
         {businessUnits.length > 1 && (
           <select
             value={currentFilters.buId ?? ''}
             onChange={(e) => setFilter('buId', e.target.value)}
             className="input-base text-xs h-8 w-auto">
-            <option value="">All BUs</option>
+            <option value="">All Entities</option>
             {businessUnits.map((bu) => (
               <option key={bu.id} value={bu.id}>{bu.prefix} — {bu.name}</option>
             ))}
