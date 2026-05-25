@@ -6,8 +6,9 @@ import type { NextAuthConfig } from 'next-auth'
  * The full auth.ts adds the Credentials provider with DB access.
  */
 export const authConfig: NextAuthConfig = {
-  session: { strategy: 'jwt' },
-  pages: { signIn: '/login' },
+  session:   { strategy: 'jwt' },
+  pages:     { signIn: '/login' },
+  trustHost: true,               // required for Vercel / reverse-proxy deployments
   providers: [],  // populated in auth.ts; empty here is fine for JWT verification
   callbacks: {
     jwt({ token, user }) {

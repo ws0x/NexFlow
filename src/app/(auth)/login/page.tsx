@@ -112,7 +112,7 @@ export default function LoginPage() {
                   value={form.password}
                   onChange={handleChange}
                   placeholder="••••••••"
-                  className="input-base text-sm h-10 pr-10"
+                  className="input-base text-sm h-10 pr-10 [&::-ms-reveal]:hidden [&::-webkit-contacts-auto-fill-button]:hidden"
                 />
                 <button
                   type="button"
