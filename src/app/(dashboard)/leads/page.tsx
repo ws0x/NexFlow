@@ -55,6 +55,7 @@ export default async function LeadsPage({
     where.OR = [
       { reqCode:       { contains: params.q, mode: 'insensitive' } },
       { companyName:   { contains: params.q, mode: 'insensitive' } },
+      { companyNameAr: { contains: params.q, mode: 'insensitive' } },
       { contactName:   { contains: params.q, mode: 'insensitive' } },
       { contactNumber: { contains: params.q, mode: 'insensitive' } },
       { contactEmail:  { contains: params.q, mode: 'insensitive' } },

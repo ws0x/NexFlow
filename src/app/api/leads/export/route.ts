@@ -42,6 +42,7 @@ export async function GET(req: NextRequest) {
     where.OR = [
       { reqCode:       { contains: q, mode: 'insensitive' } },
       { companyName:   { contains: q, mode: 'insensitive' } },
+      { companyNameAr: { contains: q, mode: 'insensitive' } },
       { contactName:   { contains: q, mode: 'insensitive' } },
       { contactNumber: { contains: q, mode: 'insensitive' } },
       { contactEmail:  { contains: q, mode: 'insensitive' } },
