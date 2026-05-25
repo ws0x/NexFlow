@@ -1,13 +1,19 @@
 /**
- * Next.js 16 Proxy (replaces middleware).
- * Uses next-auth/jwt getToken — fully Edge-safe, zero Node.js imports.
+ * Next.js 16 Proxy (middleware).
+ *
+ * Uses NextAuth(authConfig).auth — the v5-native way to read the session
+ * in Edge.  The old `getToken` approach failed because NextAuth v5 JWTs
+ * are *encrypted* (JWE) and require both `secret` AND `salt` (derived
+ * from the cookie name) to decrypt.  `auth()` handles that automatically.
+ *
+ * `authConfig` has zero Node.js-only imports, so this stays Edge-safe.
  */
-import { getToken } from 'next-auth/jwt'
-import { NextRequest, NextResponse } from 'next/server'
+import NextAuth from 'next-auth'
+import { authConfig } from '@/lib/auth.config'
 
-const PUBLIC_PATHS = ['/login']
+const { auth } = NextAuth(authConfig)
 
-function getDefaultPath(role: string): string {
+function getDefaultPath(role?: string): string {
   switch (role) {
     case 'SUPER_ADMIN': return '/admin'
     case 'MANAGER':     return '/analytics'
@@ -16,27 +22,20 @@ function getDefaultPath(role: string): string {
   }
 }
 
-export default async function proxy(req: NextRequest) {
-  const token = await getToken({
-    req,
-    secret: process.env.AUTH_SECRET,
-  })
+export default auth(function proxy(req) {
+  const isPublic = req.nextUrl.pathname.startsWith('/login')
 
-  const isPublic = PUBLIC_PATHS.some((p) => req.nextUrl.pathname.startsWith(p))
-
-  // Not authenticated → redirect to login
-  if (!token && !isPublic) {
-    return NextResponse.redirect(new URL('/login', req.url))
+  // Not authenticated → go to login
+  if (!req.auth && !isPublic) {
+    return Response.redirect(new URL('/login', req.url))
   }
 
-  // Authenticated → redirect away from login to role home
-  if (token && isPublic) {
-    const path = getDefaultPath(token.role as string)
-    return NextResponse.redirect(new URL(path, req.url))
+  // Authenticated + on login page → go to role home
+  if (req.auth && isPublic) {
+    const role = (req.auth.user as any)?.role as string | undefined
+    return Response.redirect(new URL(getDefaultPath(role), req.url))
   }
-
-  return NextResponse.next()
-}
+})
 
 export const config = {
   matcher: ['/((?!api|_next/static|_next/image|favicon.ico|icons|manifest.json).*)'],
