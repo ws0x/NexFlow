@@ -23,19 +23,32 @@ export default function LoginPage() {
     setError('')
 
     startTransition(async () => {
-      const res = await signIn('credentials', {
-        email: form.email,
-        password: form.password,
-        redirect: false,
-      })
+      try {
+        // Race against a 15 s timeout — Vercel Hobby functions time out at 10 s,
+        // so a 504 would arrive before this fires in the worst case.
+        const timeout = new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('timeout')), 15_000)
+        )
 
-      if (res?.error) {
-        setError('Invalid email or password. Please try again.')
-        return
+        const res = await Promise.race([
+          signIn('credentials', {
+            email: form.email,
+            password: form.password,
+            redirect: false,
+          }),
+          timeout,
+        ])
+
+        if (res?.error) {
+          setError('Invalid email or password. Please try again.')
+          return
+        }
+
+        router.push('/') // middleware redirects to role-appropriate page
+        router.refresh()
+      } catch {
+        setError('Sign-in failed — please check your connection and try again.')
       }
-
-      router.push('/') // middleware redirects to role-appropriate page
-      router.refresh()
     })
   }
 
