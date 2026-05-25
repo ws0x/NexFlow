@@ -1,56 +1,12 @@
 'use client'
 
-import { useState, useTransition } from 'react'
-import { signIn } from 'next-auth/react'
-import { useRouter } from 'next/navigation'
+import { useActionState, useState } from 'react'
 import { Eye, EyeOff, Zap, Loader2, AlertCircle } from 'lucide-react'
-import type { Metadata } from 'next'
+import { loginAction } from '@/app/actions/auth'
 
 export default function LoginPage() {
-  const router = useRouter()
-  const [isPending, startTransition] = useTransition()
+  const [state, formAction, isPending] = useActionState(loginAction, null)
   const [showPassword, setShowPassword] = useState(false)
-  const [error, setError] = useState('')
-  const [form, setForm] = useState({ email: '', password: '' })
-
-  function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
-    setForm((f) => ({ ...f, [e.target.name]: e.target.value }))
-    setError('')
-  }
-
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    setError('')
-
-    startTransition(async () => {
-      try {
-        // Race against a 15 s timeout — Vercel Hobby functions time out at 10 s,
-        // so a 504 would arrive before this fires in the worst case.
-        const timeout = new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error('timeout')), 15_000)
-        )
-
-        const res = await Promise.race([
-          signIn('credentials', {
-            email: form.email,
-            password: form.password,
-            redirect: false,
-          }),
-          timeout,
-        ])
-
-        if (res?.error) {
-          setError('Invalid email or password. Please try again.')
-          return
-        }
-
-        router.push('/') // middleware redirects to role-appropriate page
-        router.refresh()
-      } catch {
-        setError('Sign-in failed — please check your connection and try again.')
-      }
-    })
-  }
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center px-4"
@@ -85,15 +41,15 @@ export default function LoginPage() {
           </div>
 
           {/* Error */}
-          {error && (
+          {state?.error && (
             <div className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm"
               style={{ background: 'rgb(239 68 68 / 0.1)', color: '#FCA5A5', border: '1px solid rgb(239 68 68 / 0.3)' }}>
               <AlertCircle className="w-4 h-4 shrink-0" />
-              {error}
+              {state.error}
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form action={formAction} className="space-y-4">
             {/* Email */}
             <div className="space-y-1.5">
               <label className="text-xs font-medium" style={{ color: 'var(--nf-muted)' }}>
@@ -104,8 +60,6 @@ export default function LoginPage() {
                 type="email"
                 autoComplete="email"
                 required
-                value={form.email}
-                onChange={handleChange}
                 placeholder="you@company.com"
                 className="input-base text-sm h-10"
               />
@@ -122,8 +76,6 @@ export default function LoginPage() {
                   type={showPassword ? 'text' : 'password'}
                   autoComplete="current-password"
                   required
-                  value={form.password}
-                  onChange={handleChange}
                   placeholder="••••••••"
                   className="input-base text-sm h-10 pr-10 [&::-ms-reveal]:hidden [&::-webkit-contacts-auto-fill-button]:hidden"
                 />
