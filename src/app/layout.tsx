@@ -17,6 +17,10 @@ export const metadata: Metadata = {
   title: { default: 'NexFlow', template: '%s | NexFlow' },
   description: 'Lead tracking & pipeline management for Makka Corp',
   manifest: '/manifest.json',
+  icons: {
+    icon: '/icon.svg',
+    shortcut: '/icon.svg',
+  },
   appleWebApp: { capable: true, statusBarStyle: 'black-translucent', title: 'NexFlow' },
 }
 
