@@ -6,10 +6,12 @@ export type KPIData = {
   totalLeads: number
   inPipeline: number
   completed: number
+  converted: number          // leads with requestStatus === 'Turned Into Order'
   conversionRate: number
   prevTotalLeads: number
   prevInPipeline: number
   prevCompleted: number
+  prevConverted: number
   prevConversionRate: number
   hasPrev: boolean
 }
@@ -134,7 +136,7 @@ export function KPIStrip({ data }: { data: KPIData }) {
       <KPICard
         label="Conversion Rate"
         value={`${data.conversionRate.toFixed(1)}%`}
-        sub={`${data.completed} of ${data.totalLeads} leads`}
+        sub={`${data.converted} turned into order`}
         icon={Target}
         color="#818CF8"
         trend={trend(

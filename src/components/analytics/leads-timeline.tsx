@@ -9,8 +9,7 @@ import {
   CartesianGrid,
   Tooltip,
 } from 'recharts'
-import { useRouter, usePathname } from 'next/navigation'
-import { useCallback } from 'react'
+import { useState } from 'react'
 
 type Point = { label: string; count: number }
 
@@ -41,24 +40,12 @@ function CustomTooltip({ active, payload, label }: any) {
 }
 
 export function LeadsTimeline({
-  data,
-  range,
-  currentBU = 'all',
+  allData,
 }: {
-  data: Point[]
-  range: string
-  currentBU?: string
+  allData: Record<string, Point[]>
 }) {
-  const router   = useRouter()
-  const pathname = usePathname()
-
-  const setRange = useCallback(
-    (newRange: string) => {
-      const p = new URLSearchParams({ range: newRange, bu: currentBU })
-      router.push(`${pathname}?${p.toString()}`)
-    },
-    [router, pathname, currentBU],
-  )
+  const [range, setRange] = useState('1y')
+  const data = allData[range] ?? []
 
   // For 30-day ranges, only show every 5th label to avoid crowding
   const tickInterval = range === '30d' ? 4 : 'preserveStartEnd'
@@ -79,7 +66,7 @@ export function LeadsTimeline({
               <button
                 key={value}
                 onClick={() => setRange(value)}
-                className="px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all"
+                className="px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all cursor-pointer"
                 style={
                   range === value
                     ? { background: 'var(--nf-accent)', color: '#0F172A' }

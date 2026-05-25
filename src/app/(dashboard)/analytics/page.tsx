@@ -222,22 +222,31 @@ export default async function AnalyticsPage({
 
   const dateWhere = fetchFrom ? { requestDate: { gte: fetchFrom } } : {}
 
-  const rawLeads: RawLead[] = await db.lead.findMany({
-    where:   { ...buWhere, ...dateWhere },
-    select:  {
-      id:             true,
-      reqCode:        true,
-      leadStatus:     true,
-      requestDate:    true,
-      companyName:    true,
-      companySector:  true,
-      leadSource:     true,
-      requestStatus:  true,
-      businessUnitId: true,
-      businessUnit:   { select: { name: true, prefix: true } },
-    },
-    orderBy: { requestDate: 'desc' },
-  })
+  const [rawLeads, timelineLeads] = await Promise.all([
+    db.lead.findMany({
+      where:   { ...buWhere, ...dateWhere },
+      select:  {
+        id:             true,
+        reqCode:        true,
+        leadStatus:     true,
+        requestDate:    true,
+        companyName:    true,
+        companySector:  true,
+        leadSource:     true,
+        requestStatus:  true,
+        businessUnitId: true,
+        businessUnit:   { select: { name: true, prefix: true } },
+      },
+      orderBy: { requestDate: 'desc' },
+    }),
+    // Separate lean query for the timeline chart — no date filter so all
+    // ranges (7D → All) are available independently of the dashboard filter.
+    db.lead.findMany({
+      where:   buWhere,
+      select:  { requestDate: true },
+      orderBy: { requestDate: 'desc' },
+    }),
+  ])
 
   // ── Split current vs previous period ──────────────────────────────────────
   const fromDate     = from
@@ -260,30 +269,39 @@ export default async function AnalyticsPage({
   const inPipeline = currentLeads.filter(
     (l) => l.leadStatus === 'SUBMITTED' || l.leadStatus === 'SENT_TO_SALES',
   ).length
-  const completed    = currentLeads.filter((l) => l.leadStatus === 'COMPLETED').length
-  const convRate     = totalLeads > 0 ? (completed / totalLeads) * 100 : 0
+  const completed  = currentLeads.filter((l) => l.leadStatus === 'COMPLETED').length
+  // Conversion = leads that actually turned into an order (not just workflow-closed)
+  const converted  = currentLeads.filter((l) => l.requestStatus === 'Turned Into Order').length
+  const convRate   = totalLeads > 0 ? (converted / totalLeads) * 100 : 0
 
   const prevTotal    = prevLeads.length
   const prevPipeline = prevLeads.filter(
     (l) => l.leadStatus === 'SUBMITTED' || l.leadStatus === 'SENT_TO_SALES',
   ).length
-  const prevCompleted = prevLeads.filter((l) => l.leadStatus === 'COMPLETED').length
-  const prevConvRate  = prevTotal > 0 ? (prevCompleted / prevTotal) * 100 : 0
+  const prevCompleted  = prevLeads.filter((l) => l.leadStatus === 'COMPLETED').length
+  const prevConverted  = prevLeads.filter((l) => l.requestStatus === 'Turned Into Order').length
+  const prevConvRate   = prevTotal > 0 ? (prevConverted / prevTotal) * 100 : 0
 
   const kpiData: KPIData = {
     totalLeads,
     inPipeline,
     completed,
+    converted,
     conversionRate:     convRate,
     prevTotalLeads:     prevTotal,
     prevInPipeline:     prevPipeline,
     prevCompleted,
+    prevConverted,
     prevConversionRate: prevConvRate,
     hasPrev:            range !== 'all',
   }
 
   // ── Chart data ─────────────────────────────────────────────────────────────
-  const timelineData = buildTimeline(currentLeads, range, now)
+  // Pre-compute all timeframe buckets for the timeline chart so it can switch
+  // ranges locally without triggering a full page navigation.
+  const allTimelineData = Object.fromEntries(
+    VALID_RANGES.map((r) => [r, buildTimeline(timelineLeads, r, now)]),
+  )
 
   const pipelineData = [
     { label: 'Draft',     count: currentLeads.filter((l) => l.leadStatus === 'DRAFT').length,         color: '#64748B' },
@@ -360,7 +378,7 @@ export default async function AnalyticsPage({
       {/* ── Primary charts: timeline + pipeline ────────────────────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="lg:col-span-2">
-          <LeadsTimeline data={timelineData} range={range} currentBU={buId} />
+          <LeadsTimeline allData={allTimelineData} />
         </div>
         <PipelineBars data={pipelineData} />
       </div>
