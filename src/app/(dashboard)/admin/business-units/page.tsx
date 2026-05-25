@@ -18,7 +18,7 @@ export default async function BusinessUnitsPage() {
           Business Units
         </h2>
         <p className="text-sm" style={{ color: 'var(--nf-muted)' }}>
-          Edit coordinator phone numbers for each business unit
+          Configure coordinator phones and CallMeBot API keys for WhatsApp alerts
         </p>
       </div>
 

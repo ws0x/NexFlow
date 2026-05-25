@@ -164,13 +164,18 @@ export async function resetUserPassword(userId: string, newPassword: string) {
 export async function updateBusinessUnit(formData: FormData) {
   await requireAdmin()
 
-  const id    = formData.get('id') as string
-  const name  = formData.get('name') as string
-  const phone = formData.get('coordinatorPhone') as string
+  const id     = formData.get('id') as string
+  const name   = formData.get('name') as string
+  const phone  = formData.get('coordinatorPhone') as string
+  const apiKey = formData.get('coordinatorApiKey') as string
 
   await db.businessUnit.update({
     where: { id },
-    data:  { name, coordinatorPhone: phone || null },
+    data:  {
+      name,
+      coordinatorPhone:  phone  || null,
+      coordinatorApiKey: apiKey || null,
+    },
   })
 
   revalidatePath('/admin/business-units')

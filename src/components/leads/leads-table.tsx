@@ -1,50 +1,40 @@
 'use client'
 
-import { useRouter, useSearchParams, usePathname } from 'next/navigation'
-import { useCallback, useTransition } from 'react'
+import { useRouter, usePathname } from 'next/navigation'
+import { useTransition } from 'react'
 import Link from 'next/link'
-import { Search, ChevronLeft, ChevronRight, Filter } from 'lucide-react'
-import { formatDate, getStatusStyle, getBUStyle, LEAD_STATUS_LABELS } from '@/lib/utils'
-import type { Role } from '@/generated/prisma/client'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { formatDate, getStatusStyle, getBUStyle } from '@/lib/utils'
 
 interface Lead {
-  id: string
-  reqCode: string
-  requestDate: Date
-  companyName: string
-  contactName: string
+  id:            string
+  reqCode:       string
+  requestDate:   Date
+  companyName:   string
+  contactName:   string
   contactNumber: string
-  leadType?: string | null
+  leadType?:     string | null
   requestStatus: string
-  leadStatus: string
-  businessUnit: { name: string; prefix: string }
+  leadStatus:    string
+  businessUnit:  { name: string; prefix: string }
   directedToDept?: { name: string } | null
 }
 
 interface LeadsTableProps {
-  leads: Lead[]
-  total: number
-  page: number
+  leads:    Lead[]
+  total:    number
+  page:     number
   pageSize: number
-  businessUnits: { id: string; name: string; prefix: string }[]
-  statusOptions: string[]
-  role: Role
-  currentFilters: { buId?: string; status?: string; q?: string }
 }
 
-export function LeadsTable({
-  leads, total, page, pageSize,
-  businessUnits, statusOptions, role, currentFilters,
-}: LeadsTableProps) {
-  const router = useRouter()
+export function LeadsTable({ leads, total, page, pageSize }: LeadsTableProps) {
+  const router   = useRouter()
   const pathname = usePathname()
-  const [isPending, startTransition] = useTransition()
+  const [, startTransition] = useTransition()
 
-  function updateFilter(key: string, value: string) {
+  function goToPage(p: number) {
     const params = new URLSearchParams(window.location.search)
-    if (value) params.set(key, value)
-    else params.delete(key)
-    params.delete('page')
+    params.set('page', String(p))
     startTransition(() => router.push(`${pathname}?${params.toString()}`))
   }
 
@@ -52,47 +42,8 @@ export function LeadsTable({
 
   return (
     <div className="space-y-3">
-      {/* Filters row */}
-      <div className="flex flex-wrap items-center gap-2">
-        {/* Search */}
-        <div className="relative flex-1 min-w-48 max-w-xs">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5"
-            style={{ color: 'var(--nf-subtle)' }} />
-          <input
-            type="text"
-            placeholder="Search REQ code, company…"
-            defaultValue={currentFilters.q}
-            onChange={(e) => updateFilter('q', e.target.value)}
-            className="input-base text-xs pl-8 h-8"
-          />
-        </div>
 
-        {/* BU filter */}
-        {businessUnits.length > 1 && (
-          <select
-            defaultValue={currentFilters.buId ?? ''}
-            onChange={(e) => updateFilter('buId', e.target.value)}
-            className="input-base text-xs h-8 w-auto pr-7">
-            <option value="">All BUs</option>
-            {businessUnits.map((bu) => (
-              <option key={bu.id} value={bu.id}>{bu.prefix} — {bu.name}</option>
-            ))}
-          </select>
-        )}
-
-        {/* Status filter */}
-        <select
-          defaultValue={currentFilters.status ?? ''}
-          onChange={(e) => updateFilter('status', e.target.value)}
-          className="input-base text-xs h-8 w-auto pr-7">
-          <option value="">All Statuses</option>
-          {statusOptions.map((s) => (
-            <option key={s} value={s}>{s}</option>
-          ))}
-        </select>
-      </div>
-
-      {/* Table */}
+      {/* ── Table ──────────────────────────────────────────────────────────── */}
       <div className="card overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -109,9 +60,9 @@ export function LeadsTable({
             <tbody>
               {leads.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-4 py-12 text-center text-sm"
+                  <td colSpan={8} className="px-4 py-14 text-center text-sm"
                     style={{ color: 'var(--nf-muted)' }}>
-                    No leads found
+                    No leads match your filters
                   </td>
                 </tr>
               ) : leads.map((lead) => (
@@ -173,8 +124,7 @@ export function LeadsTable({
 
                   {/* Action */}
                   <td className="px-4 py-3">
-                    <Link href={`/leads/${lead.id}`}
-                      className="text-xs btn-outline h-7 px-3">
+                    <Link href={`/leads/${lead.id}`} className="text-xs btn-outline h-7 px-3">
                       View
                     </Link>
                   </td>
@@ -185,16 +135,17 @@ export function LeadsTable({
         </div>
       </div>
 
-      {/* Pagination */}
+      {/* ── Pagination ─────────────────────────────────────────────────────── */}
       {totalPages > 1 && (
         <div className="flex items-center justify-between">
           <p className="text-xs" style={{ color: 'var(--nf-muted)' }}>
-            Showing {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, total)} of {total}
+            Showing {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, total)} of{' '}
+            {total.toLocaleString()}
           </p>
           <div className="flex items-center gap-1">
             <button
               disabled={page <= 1}
-              onClick={() => updateFilter('page', String(page - 1))}
+              onClick={() => goToPage(page - 1)}
               className="btn-ghost h-8 w-8 p-0 disabled:opacity-30">
               <ChevronLeft className="w-4 h-4" />
             </button>
@@ -203,7 +154,7 @@ export function LeadsTable({
             </span>
             <button
               disabled={page >= totalPages}
-              onClick={() => updateFilter('page', String(page + 1))}
+              onClick={() => goToPage(page + 1)}
               className="btn-ghost h-8 w-8 p-0 disabled:opacity-30">
               <ChevronRight className="w-4 h-4" />
             </button>

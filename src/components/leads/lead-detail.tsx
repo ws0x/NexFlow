@@ -1,16 +1,20 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { sendLeadToSales, updateSalesFields } from '@/app/actions/leads'
+import { sendLeadToSales, updateSalesFields, updateLeadFields } from '@/app/actions/leads'
 import {
   Building2, User, FileText, Send, Clock, CheckCircle2,
   ExternalLink, Loader2, History, ChevronDown, ChevronUp,
-  MessageSquare, Calendar, Tag,
+  MessageSquare, Tag, Pencil, X,
 } from 'lucide-react'
-import { formatDate, formatDateTime, formatRelative, getStatusStyle, getBUStyle, LEAD_STATUS_LABELS } from '@/lib/utils'
+import {
+  formatDate, formatRelative, getStatusStyle, getBUStyle, LEAD_STATUS_LABELS,
+} from '@/lib/utils'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 import type { Role } from '@/generated/prisma/client'
+
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 interface Lead {
   id: string; reqCode: string; leadStatus: string; requestDate: Date
@@ -33,25 +37,61 @@ interface Lead {
 
 interface Props {
   lead: Lead; role: Role
-  canSendToSales: boolean; canEditSales: boolean
+  canSendToSales: boolean; canEditSales: boolean; canEditLead: boolean
   showSalesFields: boolean; showMarketingFields: boolean
   statusOptions: string[]; departments: { id: string; name: string }[]
 }
 
+type EditSection = 'company' | 'contact' | 'marketing' | null
+
+// ─── Component ────────────────────────────────────────────────────────────────
+
 export function LeadDetail({
-  lead, role, canSendToSales: canSend, canEditSales,
+  lead, role,
+  canSendToSales: canSend, canEditSales, canEditLead,
   showSalesFields, showMarketingFields, statusOptions,
 }: Props) {
   const [isPending, startTransition] = useTransition()
-  const [waUrl, setWaUrl] = useState<string | null>(null)
+  const [waUrl,      setWaUrl]       = useState<string | null>(null)
   const [showHistory, setShowHistory] = useState(false)
+  const [editSection, setEditSection] = useState<EditSection>(null)
+
+  // ── Sales form state ───────────────────────────────────────────────────────
   const [salesForm, setSalesForm] = useState({
-    salesResponse:     lead.salesResponse ?? '',
+    salesResponse:     lead.salesResponse    ?? '',
     salesResponseDate: lead.salesResponseDate
       ? new Date(lead.salesResponseDate).toISOString().split('T')[0]
       : '',
     requestStatus: lead.requestStatus,
   })
+
+  // ── Inline edit form states ────────────────────────────────────────────────
+  const [companyForm, setCompanyForm] = useState({
+    companyName:    lead.companyName,
+    companyNameAr:  lead.companyNameAr   ?? '',
+    companyWebsite: lead.companyWebsite  ?? '',
+    companyType:    lead.companyType     ?? '',
+    companySector:  lead.companySector   ?? '',
+    country:        lead.country         ?? '',
+    city:           lead.city            ?? '',
+    location:       lead.location        ?? '',
+  })
+
+  const [contactForm, setContactForm] = useState({
+    contactName:   lead.contactName,
+    contactNumber: lead.contactNumber,
+    contactEmail:  lead.contactEmail ?? '',
+    leadType:      lead.leadType     ?? '',
+  })
+
+  const [marketingForm, setMarketingForm] = useState({
+    leadSource:           lead.leadSource           ?? '',
+    communicationChannel: lead.communicationChannel ?? '',
+    leadRequest:          lead.leadRequest           ?? '',
+    marketingNotes:       lead.marketingNotes        ?? '',
+  })
+
+  // ── Handlers ──────────────────────────────────────────────────────────────
 
   function handleSendToSales() {
     startTransition(async () => {
@@ -71,19 +111,76 @@ export function LeadDetail({
 
   function handleSalesSubmit() {
     const fd = new FormData()
-    fd.set('leadId', lead.id)
-    fd.set('salesResponse', salesForm.salesResponse)
+    fd.set('leadId',            lead.id)
+    fd.set('salesResponse',     salesForm.salesResponse)
     fd.set('salesResponseDate', salesForm.salesResponseDate)
-    fd.set('requestStatus', salesForm.requestStatus)
+    fd.set('requestStatus',     salesForm.requestStatus)
     startTransition(async () => {
       try {
         await updateSalesFields(fd)
-        toast.success('Sales fields updated successfully!')
+        toast.success('Sales response saved!')
       } catch (e: any) {
         toast.error(e.message ?? 'Failed to update')
       }
     })
   }
+
+  function handleSaveSection(section: EditSection) {
+    if (!section) return
+    const fd = new FormData()
+    fd.set('leadId', lead.id)
+
+    const form =
+      section === 'company'   ? companyForm :
+      section === 'contact'   ? contactForm :
+      section === 'marketing' ? marketingForm : null
+    if (!form) return
+
+    Object.entries(form).forEach(([k, v]) => fd.set(k, v))
+
+    startTransition(async () => {
+      try {
+        await updateLeadFields(fd)
+        toast.success('Changes saved')
+        setEditSection(null)
+      } catch (e: any) {
+        toast.error(e.message ?? 'Save failed')
+      }
+    })
+  }
+
+  function cancelEdit(section: EditSection) {
+    // Reset form to lead values
+    if (section === 'company') {
+      setCompanyForm({
+        companyName:    lead.companyName,
+        companyNameAr:  lead.companyNameAr  ?? '',
+        companyWebsite: lead.companyWebsite ?? '',
+        companyType:    lead.companyType    ?? '',
+        companySector:  lead.companySector  ?? '',
+        country:        lead.country        ?? '',
+        city:           lead.city           ?? '',
+        location:       lead.location       ?? '',
+      })
+    } else if (section === 'contact') {
+      setContactForm({
+        contactName:   lead.contactName,
+        contactNumber: lead.contactNumber,
+        contactEmail:  lead.contactEmail ?? '',
+        leadType:      lead.leadType     ?? '',
+      })
+    } else if (section === 'marketing') {
+      setMarketingForm({
+        leadSource:           lead.leadSource           ?? '',
+        communicationChannel: lead.communicationChannel ?? '',
+        leadRequest:          lead.leadRequest           ?? '',
+        marketingNotes:       lead.marketingNotes        ?? '',
+      })
+    }
+    setEditSection(null)
+  }
+
+  // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
     <div className="max-w-4xl mx-auto space-y-4">
@@ -106,15 +203,12 @@ export function LeadDetail({
         </div>
 
         <div className="flex items-center gap-2">
-          {/* WhatsApp open button */}
           {waUrl && (
             <a href={waUrl} target="_blank" rel="noopener noreferrer"
               className="btn-primary text-sm h-9 px-4">
               <ExternalLink className="w-4 h-4" /> Open WhatsApp
             </a>
           )}
-
-          {/* Send to sales */}
           {canSend && !lead.sentToSales && (
             <button onClick={handleSendToSales} disabled={isPending}
               className="btn-primary text-sm h-9 px-4">
@@ -122,7 +216,6 @@ export function LeadDetail({
               Send to Sales
             </button>
           )}
-
           {lead.sentToSales && (
             <div className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg"
               style={{ background: 'rgb(34 197 94 / 0.1)', color: '#86EFAC', border: '1px solid rgb(34 197 94 / 0.2)' }}>
@@ -135,75 +228,147 @@ export function LeadDetail({
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
 
-        {/* ── Left col: main info ── */}
+        {/* ── Left column ─────────────────────────────────────────────────── */}
         <div className="lg:col-span-2 space-y-4">
 
           {/* Company */}
-          <Section icon={Building2} title="Company">
-            <Grid2>
-              <Field label="Name (EN)" value={lead.companyName} />
-              {lead.companyNameAr && <Field label="Name (AR)" value={lead.companyNameAr} />}
-              {lead.companyType    && <Field label="Type" value={lead.companyType} />}
-              {lead.companySector  && <Field label="Sector" value={lead.companySector} />}
-              {lead.country        && <Field label="Country" value={lead.country} />}
-              {lead.city           && <Field label="City" value={lead.city} />}
-              {lead.location       && <Field label="Location" value={lead.location} wide />}
-              {lead.companyWebsite && (
-                <div className="col-span-2">
-                  <p className="text-xs mb-1" style={{ color: 'var(--nf-muted)' }}>Website</p>
-                  <a href={lead.companyWebsite} target="_blank" rel="noopener noreferrer"
-                    className="text-sm flex items-center gap-1"
-                    style={{ color: 'var(--nf-accent)' }}>
-                    {lead.companyWebsite} <ExternalLink className="w-3 h-3" />
-                  </a>
-                </div>
-              )}
-            </Grid2>
+          <Section
+            icon={Building2} title="Company"
+            editing={editSection === 'company'}
+            canEdit={canEditLead}
+            isPending={isPending}
+            onEdit={() => setEditSection('company')}
+            onSave={() => handleSaveSection('company')}
+            onCancel={() => cancelEdit('company')}>
+            {editSection === 'company' ? (
+              <Grid2>
+                <EField label="Name (EN)" value={companyForm.companyName}
+                  onChange={(v) => setCompanyForm((f) => ({ ...f, companyName: v }))} required />
+                <EField label="Name (AR)" value={companyForm.companyNameAr}
+                  onChange={(v) => setCompanyForm((f) => ({ ...f, companyNameAr: v }))} />
+                <EField label="Type" value={companyForm.companyType}
+                  onChange={(v) => setCompanyForm((f) => ({ ...f, companyType: v }))} />
+                <EField label="Sector" value={companyForm.companySector}
+                  onChange={(v) => setCompanyForm((f) => ({ ...f, companySector: v }))} />
+                <EField label="Country" value={companyForm.country}
+                  onChange={(v) => setCompanyForm((f) => ({ ...f, country: v }))} />
+                <EField label="City" value={companyForm.city}
+                  onChange={(v) => setCompanyForm((f) => ({ ...f, city: v }))} />
+                <EField label="Location" value={companyForm.location} wide
+                  onChange={(v) => setCompanyForm((f) => ({ ...f, location: v }))} />
+                <EField label="Website" value={companyForm.companyWebsite} wide
+                  onChange={(v) => setCompanyForm((f) => ({ ...f, companyWebsite: v }))} />
+              </Grid2>
+            ) : (
+              <Grid2>
+                <Field label="Name (EN)" value={lead.companyName} />
+                {lead.companyNameAr   && <Field label="Name (AR)"  value={lead.companyNameAr} />}
+                {lead.companyType     && <Field label="Type"        value={lead.companyType} />}
+                {lead.companySector   && <Field label="Sector"      value={lead.companySector} />}
+                {lead.country         && <Field label="Country"     value={lead.country} />}
+                {lead.city            && <Field label="City"        value={lead.city} />}
+                {lead.location        && <Field label="Location"    value={lead.location} wide />}
+                {lead.companyWebsite  && (
+                  <div className="col-span-2">
+                    <p className="text-xs mb-1" style={{ color: 'var(--nf-muted)' }}>Website</p>
+                    <a href={lead.companyWebsite} target="_blank" rel="noopener noreferrer"
+                      className="text-sm flex items-center gap-1" style={{ color: 'var(--nf-accent)' }}>
+                      {lead.companyWebsite} <ExternalLink className="w-3 h-3" />
+                    </a>
+                  </div>
+                )}
+              </Grid2>
+            )}
           </Section>
 
           {/* Contact */}
-          <Section icon={User} title="Contact">
-            <Grid2>
-              <Field label="Name" value={lead.contactName} />
-              <Field label="Number" value={lead.contactNumber} mono />
-              {lead.contactEmail && <Field label="Email" value={lead.contactEmail} />}
-              {lead.leadType     && <Field label="Lead Type" value={lead.leadType} />}
-              <Field label="New Client" value={lead.newClient ? 'Yes' : 'No'} />
-              {lead.internalReferral && (
-                <Field label="Referral From" value={lead.referralFrom ?? 'Internal'} />
-              )}
-            </Grid2>
+          <Section
+            icon={User} title="Contact"
+            editing={editSection === 'contact'}
+            canEdit={canEditLead}
+            isPending={isPending}
+            onEdit={() => setEditSection('contact')}
+            onSave={() => handleSaveSection('contact')}
+            onCancel={() => cancelEdit('contact')}>
+            {editSection === 'contact' ? (
+              <Grid2>
+                <EField label="Name" value={contactForm.contactName} required
+                  onChange={(v) => setContactForm((f) => ({ ...f, contactName: v }))} />
+                <EField label="Number" value={contactForm.contactNumber} mono required
+                  onChange={(v) => setContactForm((f) => ({ ...f, contactNumber: v }))} />
+                <EField label="Email" value={contactForm.contactEmail}
+                  onChange={(v) => setContactForm((f) => ({ ...f, contactEmail: v }))} />
+                <EField label="Lead Type" value={contactForm.leadType}
+                  onChange={(v) => setContactForm((f) => ({ ...f, leadType: v }))} />
+              </Grid2>
+            ) : (
+              <Grid2>
+                <Field label="Name"   value={lead.contactName} />
+                <Field label="Number" value={lead.contactNumber} mono />
+                {lead.contactEmail && <Field label="Email"    value={lead.contactEmail} />}
+                {lead.leadType     && <Field label="Lead Type" value={lead.leadType} />}
+                <Field label="New Client" value={lead.newClient ? 'Yes' : 'No'} />
+                {lead.internalReferral && (
+                  <Field label="Referral From" value={lead.referralFrom ?? 'Internal'} />
+                )}
+              </Grid2>
+            )}
           </Section>
 
-          {/* Marketing fields */}
+          {/* Marketing Details */}
           {showMarketingFields && (
-            <Section icon={FileText} title="Marketing Details" accent>
-              <Grid2>
-                {lead.leadSource           && <Field label="Source" value={lead.leadSource} />}
-                {lead.communicationChannel && <Field label="Channel" value={lead.communicationChannel} />}
-                {lead.directedToDept       && <Field label="Directed To" value={lead.directedToDept.name} />}
-              </Grid2>
-              {lead.leadRequest && (
-                <div className="mt-3">
-                  <p className="text-xs mb-1.5" style={{ color: 'var(--nf-muted)' }}>Lead Request</p>
-                  <p className="text-sm p-3 rounded-lg" style={{ background: 'var(--nf-surface-2)', color: 'var(--nf-text)' }}>
-                    {lead.leadRequest}
-                  </p>
+            <Section
+              icon={FileText} title="Marketing Details" accent
+              editing={editSection === 'marketing'}
+              canEdit={canEditLead}
+              isPending={isPending}
+              onEdit={() => setEditSection('marketing')}
+              onSave={() => handleSaveSection('marketing')}
+              onCancel={() => cancelEdit('marketing')}>
+              {editSection === 'marketing' ? (
+                <div className="space-y-3">
+                  <Grid2>
+                    <EField label="Source" value={marketingForm.leadSource}
+                      onChange={(v) => setMarketingForm((f) => ({ ...f, leadSource: v }))} />
+                    <EField label="Channel" value={marketingForm.communicationChannel}
+                      onChange={(v) => setMarketingForm((f) => ({ ...f, communicationChannel: v }))} />
+                  </Grid2>
+                  <EField label="Lead Request" value={marketingForm.leadRequest} multiline wide
+                    onChange={(v) => setMarketingForm((f) => ({ ...f, leadRequest: v }))} />
+                  <EField label="Marketing Notes" value={marketingForm.marketingNotes} multiline wide
+                    onChange={(v) => setMarketingForm((f) => ({ ...f, marketingNotes: v }))} />
                 </div>
-              )}
-              {lead.marketingNotes && (
-                <div className="mt-3">
-                  <p className="text-xs mb-1.5" style={{ color: 'var(--nf-muted)' }}>Marketing Notes</p>
-                  <p className="text-sm p-3 rounded-lg italic"
-                    style={{ background: 'var(--nf-surface-2)', color: 'var(--nf-muted)', border: '1px dashed var(--nf-border)' }}>
-                    {lead.marketingNotes}
-                  </p>
-                </div>
+              ) : (
+                <>
+                  <Grid2>
+                    {lead.leadSource           && <Field label="Source"      value={lead.leadSource} />}
+                    {lead.communicationChannel && <Field label="Channel"     value={lead.communicationChannel} />}
+                    {lead.directedToDept       && <Field label="Directed To" value={lead.directedToDept.name} />}
+                  </Grid2>
+                  {lead.leadRequest && (
+                    <div className="mt-3">
+                      <p className="text-xs mb-1.5" style={{ color: 'var(--nf-muted)' }}>Lead Request</p>
+                      <p className="text-sm p-3 rounded-lg"
+                        style={{ background: 'var(--nf-surface-2)', color: 'var(--nf-text)' }}>
+                        {lead.leadRequest}
+                      </p>
+                    </div>
+                  )}
+                  {lead.marketingNotes && (
+                    <div className="mt-3">
+                      <p className="text-xs mb-1.5" style={{ color: 'var(--nf-muted)' }}>Marketing Notes</p>
+                      <p className="text-sm p-3 rounded-lg italic"
+                        style={{ background: 'var(--nf-surface-2)', color: 'var(--nf-muted)', border: '1px dashed var(--nf-border)' }}>
+                        {lead.marketingNotes}
+                      </p>
+                    </div>
+                  )}
+                </>
               )}
             </Section>
           )}
 
-          {/* Sales fields */}
+          {/* Sales Response */}
           {showSalesFields && (
             <Section icon={MessageSquare} title="Sales Response" accent={canEditSales}>
               {canEditSales ? (
@@ -255,7 +420,8 @@ export function LeadDetail({
                   {lead.salesResponse && (
                     <div className="col-span-2">
                       <p className="text-xs mb-1.5" style={{ color: 'var(--nf-muted)' }}>Response</p>
-                      <p className="text-sm p-3 rounded-lg" style={{ background: 'var(--nf-surface-2)', color: 'var(--nf-text)' }}>
+                      <p className="text-sm p-3 rounded-lg"
+                        style={{ background: 'var(--nf-surface-2)', color: 'var(--nf-text)' }}>
                         {lead.salesResponse}
                       </p>
                     </div>
@@ -266,16 +432,17 @@ export function LeadDetail({
           )}
         </div>
 
-        {/* ── Right col: meta + history ── */}
+        {/* ── Right column: meta + history ─────────────────────────────────── */}
         <div className="space-y-4">
+
           {/* Meta */}
           <div className="card p-4 space-y-3">
             <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--nf-subtle)' }}>
               Details
             </p>
-            <MetaRow icon={Tag} label="Lead Status" value={LEAD_STATUS_LABELS[lead.leadStatus] ?? lead.leadStatus} />
-            <MetaRow icon={Clock} label="Created" value={formatRelative(lead.requestDate)} />
-            <MetaRow icon={User} label="Added By" value={lead.createdBy.name} />
+            <MetaRow icon={Tag}   label="Lead Status" value={LEAD_STATUS_LABELS[lead.leadStatus] ?? lead.leadStatus} />
+            <MetaRow icon={Clock} label="Created"     value={formatRelative(lead.requestDate)} />
+            <MetaRow icon={User}  label="Added By"    value={lead.createdBy.name} />
             {lead.directedToDept && (
               <MetaRow icon={Send} label="Directed To" value={lead.directedToDept.name} />
             )}
@@ -293,8 +460,9 @@ export function LeadDetail({
                   History ({lead.history.length})
                 </span>
               </div>
-              {showHistory ? <ChevronUp className="w-4 h-4" style={{ color: 'var(--nf-muted)' }} />
-                           : <ChevronDown className="w-4 h-4" style={{ color: 'var(--nf-muted)' }} />}
+              {showHistory
+                ? <ChevronUp   className="w-4 h-4" style={{ color: 'var(--nf-muted)' }} />
+                : <ChevronDown className="w-4 h-4" style={{ color: 'var(--nf-muted)' }} />}
             </button>
 
             {showHistory && (
@@ -341,22 +509,65 @@ export function LeadDetail({
   )
 }
 
-// ── Sub-components ────────────────────────────────────────────────────────────
+// ─── Sub-components ───────────────────────────────────────────────────────────
 
-function Section({ icon: Icon, title, children, accent }: {
+interface SectionProps {
   icon: any; title: string; children: React.ReactNode; accent?: boolean
-}) {
+  editing?: boolean; canEdit?: boolean; isPending?: boolean
+  onEdit?: () => void; onSave?: () => void; onCancel?: () => void
+}
+
+function Section({
+  icon: Icon, title, children, accent,
+  editing, canEdit, isPending, onEdit, onSave, onCancel,
+}: SectionProps) {
   return (
     <div className="card p-4 space-y-3">
-      <div className="flex items-center gap-2.5 pb-2" style={{ borderBottom: '1px solid var(--nf-border)' }}>
-        <div className="w-7 h-7 rounded-md flex items-center justify-center"
-          style={{
-            background: accent ? 'var(--nf-accent-glow)' : 'var(--nf-surface-2)',
-            border: `1px solid ${accent ? 'var(--nf-accent)' : 'var(--nf-border)'}`,
-          }}>
-          <Icon className="w-3.5 h-3.5" style={{ color: accent ? 'var(--nf-accent)' : 'var(--nf-muted)' }} />
+      <div className="flex items-center justify-between pb-2"
+        style={{ borderBottom: '1px solid var(--nf-border)' }}>
+        <div className="flex items-center gap-2.5">
+          <div className="w-7 h-7 rounded-md flex items-center justify-center"
+            style={{
+              background: accent ? 'var(--nf-accent-glow)' : 'var(--nf-surface-2)',
+              border: `1px solid ${accent ? 'var(--nf-accent)' : 'var(--nf-border)'}`,
+            }}>
+            <Icon className="w-3.5 h-3.5" style={{ color: accent ? 'var(--nf-accent)' : 'var(--nf-muted)' }} />
+          </div>
+          <h3 className="text-sm font-semibold" style={{ color: 'var(--nf-text)' }}>{title}</h3>
         </div>
-        <h3 className="text-sm font-semibold" style={{ color: 'var(--nf-text)' }}>{title}</h3>
+
+        {/* Edit / Save / Cancel controls */}
+        {canEdit && onEdit && (
+          editing ? (
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={onSave}
+                disabled={isPending}
+                className="flex items-center gap-1 text-xs h-7 px-3 rounded-lg font-medium transition-colors"
+                style={{ background: 'rgb(6 182 212 / 0.1)', color: '#06B6D4', border: '1px solid rgb(6 182 212 / 0.3)' }}>
+                {isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <CheckCircle2 className="w-3 h-3" />}
+                Save
+              </button>
+              <button
+                onClick={onCancel}
+                disabled={isPending}
+                className="flex items-center gap-1 text-xs h-7 px-2.5 rounded-lg transition-colors"
+                style={{ background: 'var(--nf-surface-2)', color: 'var(--nf-muted)', border: '1px solid var(--nf-border)' }}>
+                <X className="w-3 h-3" />
+                Cancel
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={onEdit}
+              className="flex items-center gap-1 text-xs h-7 px-2.5 rounded-lg transition-colors"
+              style={{ color: 'var(--nf-subtle)', border: '1px solid transparent' }}
+              title="Edit">
+              <Pencil className="w-3 h-3" />
+              Edit
+            </button>
+          )
+        )}
       </div>
       {children}
     </div>
@@ -367,6 +578,7 @@ function Grid2({ children }: { children: React.ReactNode }) {
   return <div className="grid grid-cols-2 gap-x-6 gap-y-3">{children}</div>
 }
 
+/** Read-only field */
 function Field({ label, value, mono, wide }: {
   label: string; value: string; mono?: boolean; wide?: boolean
 }) {
@@ -380,12 +592,43 @@ function Field({ label, value, mono, wide }: {
   )
 }
 
+/** Editable field */
+function EField({ label, value, onChange, mono, wide, multiline, required }: {
+  label: string; value: string; onChange: (v: string) => void
+  mono?: boolean; wide?: boolean; multiline?: boolean; required?: boolean
+}) {
+  return (
+    <div className={wide ? 'col-span-2' : ''}>
+      <label className="text-xs mb-1 block" style={{ color: 'var(--nf-muted)' }}>
+        {label}{required && <span style={{ color: '#EF4444' }}> *</span>}
+      </label>
+      {multiline ? (
+        <textarea
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          rows={3}
+          className="input-base text-sm resize-none w-full"
+          placeholder={label}
+        />
+      ) : (
+        <input
+          type="text"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          className={cn('input-base text-sm h-9 w-full', mono && 'font-mono')}
+          placeholder={label}
+        />
+      )}
+    </div>
+  )
+}
+
 function MetaRow({ icon: Icon, label, value }: { icon: any; label: string; value: string }) {
   return (
     <div className="flex items-start gap-2.5">
       <Icon className="w-3.5 h-3.5 mt-0.5 shrink-0" style={{ color: 'var(--nf-subtle)' }} />
       <div>
-        <p className="text-[10px]" style={{ color: 'var(--nf-subtle)' }}>{label}</p>
+        <p className="text-[10px]"  style={{ color: 'var(--nf-subtle)' }}>{label}</p>
         <p className="text-xs font-medium" style={{ color: 'var(--nf-text)' }}>{value}</p>
       </div>
     </div>
@@ -394,11 +637,26 @@ function MetaRow({ icon: Icon, label, value }: { icon: any; label: string; value
 
 function formatFieldName(fieldName: string): string {
   const map: Record<string, string> = {
-    lead_created:     'Lead created',
-    sentToSales:      'Sent to sales',
-    requestStatus:    'Status changed',
-    salesResponse:    'Sales response updated',
-    salesResponseDate:'Response date set',
+    lead_created:         'Lead created',
+    sentToSales:          'Sent to sales',
+    requestStatus:        'Status changed',
+    salesResponse:        'Sales response updated',
+    salesResponseDate:    'Response date set',
+    companyName:          'Company name edited',
+    companyNameAr:        'Arabic name edited',
+    companyWebsite:       'Website edited',
+    companyType:          'Company type edited',
+    companySector:        'Sector edited',
+    country:              'Country edited',
+    city:                 'City edited',
+    contactName:          'Contact name edited',
+    contactNumber:        'Contact number edited',
+    contactEmail:         'Contact email edited',
+    leadType:             'Lead type edited',
+    leadSource:           'Lead source edited',
+    leadRequest:          'Lead request edited',
+    communicationChannel: 'Channel edited',
+    marketingNotes:       'Marketing notes edited',
   }
   return map[fieldName] ?? fieldName.replace(/_/g, ' ')
 }

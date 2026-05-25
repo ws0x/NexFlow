@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation'
 import { signOut } from 'next-auth/react'
 import {
   Zap, LayoutDashboard, PlusCircle, List, BarChart3,
-  Settings, LogOut, ChevronRight, Bell, Users, Database,
+  Settings, LogOut, ChevronRight, Bell, Users, Database, Upload,
 } from 'lucide-react'
 import { cn, initials, ROLE_COLORS_SIMPLE } from '@/lib/utils'
 import type { Role } from '@/generated/prisma/client'
@@ -20,6 +20,7 @@ interface NavItem {
 const NAV_ITEMS: NavItem[] = [
   { href: '/leads/new',               label: 'New Lead',       icon: PlusCircle, roles: ['MARKETING', 'SUPER_ADMIN'] },
   { href: '/leads',                   label: 'Leads',          icon: List,       roles: ['MARKETING', 'SALES', 'MANAGER', 'SUPER_ADMIN'] },
+  { href: '/leads/import',            label: 'Import',         icon: Upload,     roles: ['MARKETING', 'SUPER_ADMIN'] },
   { href: '/analytics',               label: 'Analytics',      icon: BarChart3,  roles: ['MANAGER', 'SUPER_ADMIN'] },
   { href: '/admin',                   label: 'Admin',          icon: Settings,   roles: ['SUPER_ADMIN'] },
   { href: '/admin/users',             label: 'Users',          icon: Users,      roles: ['SUPER_ADMIN'] },
@@ -101,9 +102,9 @@ export function Sidebar({ user, businessUnits, collapsed }: SidebarProps) {
         {visibleNav.map((item) => {
           const Icon = item.icon
           const isActive = pathname === item.href || pathname.startsWith(item.href + '/')
-          // Don't mark /leads as active when on /leads/new
+          // Don't mark /leads as active when on sub-pages like /leads/new or /leads/import
           const active = item.href === '/leads'
-            ? (pathname === '/leads' || (pathname.startsWith('/leads/') && !pathname.startsWith('/leads/new')))
+            ? (pathname === '/leads' || (pathname.startsWith('/leads/') && !pathname.startsWith('/leads/new') && !pathname.startsWith('/leads/import')))
             : isActive
 
           return (

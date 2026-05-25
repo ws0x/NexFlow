@@ -5,9 +5,10 @@ import { db } from '@/lib/db'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { generateReqCode } from '@/lib/req-code'
-import { sendLeadToCoordinator } from '@/lib/whatsapp'
+import { sendLeadToCoordinator, type LeadCardData } from '@/lib/whatsapp'
 import {
   canCreateLead, canEditSalesFields, canSendToSales,
+  canEditMutualFields, canEditMarketingFields,
   hasAccessToBusinessUnit, hasAccessToDepartment,
   stripLeadByRole,
 } from '@/lib/permissions'
@@ -90,6 +91,74 @@ export async function createLead(formData: FormData) {
     },
   })
 
+  // ── Post-create side effects (non-blocking) ───────────────────────────────
+  // We fire these after the redirect so the user isn't waiting on them.
+  // Using void to avoid unhandled promise warnings.
+  void (async () => {
+    try {
+      // 1. Fetch BU details for WhatsApp + department name
+      const bu = await db.businessUnit.findUnique({
+        where:  { id: data.businessUnitId },
+        select: { name: true, coordinatorPhone: true, coordinatorApiKey: true },
+      })
+
+      const dept = data.directedToDeptId
+        ? await db.department.findUnique({
+            where:  { id: data.directedToDeptId },
+            select: { name: true },
+          })
+        : null
+
+      // 2. WhatsApp to coordinator via CallMeBot (if configured)
+      if (bu?.coordinatorPhone) {
+        const cardData: LeadCardData = {
+          reqCode,
+          requestDate:      lead.requestDate,
+          businessUnitName: bu.name,
+          companyName:      data.companyName,
+          companyType:      data.companyType,
+          contactName:      data.contactName,
+          contactNumber:    data.contactNumber,
+          contactEmail:     data.contactEmail,
+          country:          data.country,
+          city:             data.city,
+          companySector:    data.companySector,
+          leadRequest:      data.leadRequest,
+          leadSource:       data.leadSource,
+          communicationChannel: data.communicationChannel,
+          leadType:         data.leadType,
+          directedToDeptName:   dept?.name,
+          marketingNotes:   data.marketingNotes,
+        }
+        await sendLeadToCoordinator(bu.coordinatorPhone, cardData, bu.coordinatorApiKey)
+      }
+
+      // 3. In-app notifications for managers of this BU
+      const managers = await db.user.findMany({
+        where: {
+          role:          { in: ['MANAGER', 'SUPER_ADMIN'] },
+          businessUnits: { some: { businessUnitId: data.businessUnitId } },
+          isActive:      true,
+        },
+        select: { id: true },
+      })
+
+      if (managers.length > 0) {
+        await db.notification.createMany({
+          data: managers.map((m: any) => ({
+            userId:  m.id,
+            leadId:  lead.id,
+            type:    'LEAD_CREATED',
+            title:   'New lead submitted',
+            message: `${reqCode} — ${data.companyName} has been added`,
+          })),
+        })
+      }
+    } catch {
+      // Side effects must never crash the main flow
+    }
+  })()
+
   revalidatePath('/leads')
   redirect(`/leads/${lead.id}?created=1`)
 }
@@ -154,25 +223,29 @@ export async function sendLeadToSales(leadId: string): Promise<{ waUrl: string }
   // Generate WhatsApp card link
   let waUrl = ''
   if (lead.businessUnit.coordinatorPhone) {
-    const result = await sendLeadToCoordinator(lead.businessUnit.coordinatorPhone, {
-      reqCode:          lead.reqCode,
-      requestDate:      lead.requestDate,
-      businessUnitName: lead.businessUnit.name,
-      companyName:      lead.companyName,
-      companyType:      lead.companyType,
-      contactName:      lead.contactName,
-      contactNumber:    lead.contactNumber,
-      contactEmail:     lead.contactEmail,
-      country:          lead.country,
-      city:             lead.city,
-      companySector:    lead.companySector,
-      leadRequest:      lead.leadRequest,
-      leadSource:       lead.leadSource,
-      communicationChannel: lead.communicationChannel,
-      leadType:         lead.leadType,
-      directedToDeptName:   lead.directedToDept?.name,
-      marketingNotes:   lead.marketingNotes,
-    })
+    const result = await sendLeadToCoordinator(
+      lead.businessUnit.coordinatorPhone,
+      {
+        reqCode:          lead.reqCode,
+        requestDate:      lead.requestDate,
+        businessUnitName: lead.businessUnit.name,
+        companyName:      lead.companyName,
+        companyType:      lead.companyType,
+        contactName:      lead.contactName,
+        contactNumber:    lead.contactNumber,
+        contactEmail:     lead.contactEmail,
+        country:          lead.country,
+        city:             lead.city,
+        companySector:    lead.companySector,
+        leadRequest:      lead.leadRequest,
+        leadSource:       lead.leadSource,
+        communicationChannel: lead.communicationChannel,
+        leadType:         lead.leadType,
+        directedToDeptName:   lead.directedToDept?.name,
+        marketingNotes:   lead.marketingNotes,
+      },
+      lead.businessUnit.coordinatorApiKey,
+    )
     waUrl = result.url
   }
 
@@ -262,6 +335,103 @@ export async function updateSalesFields(formData: FormData) {
 
   revalidatePath('/leads')
   revalidatePath(`/leads/${data.leadId}`)
+}
+
+// ─── Update Lead Fields (Marketing / Admin) ──────────────────────────────────
+
+export async function updateLeadFields(formData: FormData) {
+  const session = await auth()
+  if (!session?.user) throw new Error('Unauthorized')
+
+  const role = session.user.role as Role
+  if (!canEditMutualFields(role)) throw new Error('Forbidden')
+
+  const leadId = formData.get('leadId') as string | null
+  if (!leadId) throw new Error('Lead ID required')
+
+  const current = await db.lead.findUnique({
+    where:  { id: leadId },
+    select: {
+      businessUnitId:       true,
+      companyName:          true,
+      companyNameAr:        true,
+      companyWebsite:       true,
+      companyType:          true,
+      companySector:        true,
+      country:              true,
+      city:                 true,
+      location:             true,
+      contactName:          true,
+      contactNumber:        true,
+      contactEmail:         true,
+      leadType:             true,
+      leadRequest:          true,
+      leadSource:           true,
+      communicationChannel: true,
+      marketingNotes:       true,
+    },
+  })
+
+  if (!current) throw new Error('Lead not found')
+  if (!hasAccessToBusinessUnit(session.user, current.businessUnitId)) throw new Error('Forbidden')
+
+  // Helper: read a string field from formData (undefined → skip; '' → null)
+  function fStr(key: string): string | null | undefined {
+    if (!formData.has(key)) return undefined
+    const v = (formData.get(key) as string).trim()
+    return v || null
+  }
+
+  const updateData: Record<string, any>              = {}
+  const auditEntries: { fieldName: string; oldValue: string | null; newValue: string | null }[] = []
+
+  function maybeSet(field: string, newVal: string | null | undefined) {
+    if (newVal === undefined) return
+    const oldVal = (current as any)[field] ?? null
+    if (newVal !== oldVal) {
+      updateData[field] = newVal
+      auditEntries.push({ fieldName: field, oldValue: oldVal, newValue: newVal })
+    }
+  }
+
+  // Mutual fields (MARKETING + SUPER_ADMIN)
+  maybeSet('companyName',    fStr('companyName'))
+  maybeSet('companyNameAr',  fStr('companyNameAr'))
+  maybeSet('companyWebsite', fStr('companyWebsite'))
+  maybeSet('companyType',    fStr('companyType'))
+  maybeSet('companySector',  fStr('companySector'))
+  maybeSet('country',        fStr('country'))
+  maybeSet('city',           fStr('city'))
+  maybeSet('location',       fStr('location'))
+  maybeSet('contactName',    fStr('contactName'))
+  maybeSet('contactNumber',  fStr('contactNumber'))
+  maybeSet('contactEmail',   fStr('contactEmail'))
+  maybeSet('leadType',       fStr('leadType'))
+
+  // Marketing-only fields
+  if (canEditMarketingFields(role)) {
+    maybeSet('leadRequest',          fStr('leadRequest'))
+    maybeSet('leadSource',           fStr('leadSource'))
+    maybeSet('communicationChannel', fStr('communicationChannel'))
+    maybeSet('marketingNotes',       fStr('marketingNotes'))
+  }
+
+  if (Object.keys(updateData).length === 0) return // nothing changed
+
+  await db.lead.update({ where: { id: leadId }, data: updateData })
+
+  if (auditEntries.length > 0) {
+    await db.leadHistory.createMany({
+      data: auditEntries.map((e) => ({
+        leadId,
+        changedById: session.user.id,
+        ...e,
+      })),
+    })
+  }
+
+  revalidatePath('/leads')
+  revalidatePath(`/leads/${leadId}`)
 }
 
 // ─── Fetch leads (list) ───────────────────────────────────────────────────────

@@ -51,8 +51,9 @@ model BusinessUnit {
   id               String   @id @default(cuid())
   name             String
   prefix           String   @unique
-  coordinatorPhone String?
-  isActive         Boolean  @default(true)
+  coordinatorPhone  String?
+  coordinatorApiKey String?  // CallMeBot WhatsApp API key (per-phone, obtained from bot)
+  isActive          Boolean  @default(true)
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
