@@ -1,20 +1,20 @@
-import { Pool } from 'pg'
-import { PrismaPg } from '@prisma/adapter-pg'
+import { neonConfig } from '@neondatabase/serverless'
+import { PrismaNeon } from '@prisma/adapter-neon'
 import { PrismaClient } from '@/generated/prisma/client'
+
+// Node.js (non-Edge) needs a WebSocket constructor for the Neon driver.
+// Vercel/Edge auto-detects; locally we polyfill with the `ws` package.
+if (typeof globalThis.WebSocket === 'undefined') {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  neonConfig.webSocketConstructor = require('ws')
+}
 
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined
 }
 
 function createClient(): PrismaClient {
-  // max:1 is critical for Vercel serverless — prevents connection pool exhaustion
-  const pool = new Pool({
-    connectionString: process.env.DATABASE_URL,
-    max: process.env.NODE_ENV === 'production' ? 1 : 10,
-    idleTimeoutMillis: 10_000,
-    connectionTimeoutMillis: 10_000,
-  })
-  const adapter = new PrismaPg(pool)
+  const adapter = new PrismaNeon({ connectionString: process.env.DATABASE_URL })
   return new PrismaClient({ adapter } as any)
 }
 
