@@ -32,7 +32,9 @@ export const STATUS_STYLES: Record<string, string> = {
   'Just an inquiry':      'bg-blue-500/15 text-blue-300 ring-blue-500/30',
   'Out Of Range':         'bg-orange-500/15 text-orange-300 ring-orange-500/30',
   'Out Of Segment':       'bg-amber-500/15 text-amber-300 ring-amber-500/30',
-  'Quoting Stage':        'bg-cyan-500/15 text-cyan-300 ring-cyan-500/30',
+  'Quoting Stage':        'bg-cyan-500/15 text-cyan-300 ring-cyan-500/30',   // legacy — migrated to Indicative Quoting
+  'Indicative Quoting':   'bg-cyan-500/15 text-cyan-300 ring-cyan-500/30',
+  'Official Quoting':     'bg-violet-500/15 text-violet-300 ring-violet-500/30',
   'Rejected the Quote':   'bg-red-500/15 text-red-300 ring-red-500/30',
   'Turned Into Order':    'bg-green-500/15 text-green-300 ring-green-500/30',
 }
@@ -90,6 +92,15 @@ export function truncate(str: string, length: number): string {
 
 export function formatPhone(phone: string): string {
   return phone.replace(/(\d{2})(\d{4})(\d+)/, '+$1 $2 $3')
+}
+
+// ─── WhatsApp URL helper ──────────────────────────────────────────────────────
+
+export function getWhatsAppUrl(phone: string | null | undefined): string | null {
+  if (!phone) return null
+  const digits = phone.replace(/\D/g, '')
+  if (digits.length < 7) return null
+  return `https://wa.me/${digits}`
 }
 
 // ─── Role colors (simple string version for sidebar) ─────────────────────────

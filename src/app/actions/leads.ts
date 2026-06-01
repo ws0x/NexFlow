@@ -10,7 +10,7 @@ import {
   canCreateLead, canEditSalesFields, canSendToSales,
   canEditMutualFields, canEditMarketingFields,
   hasAccessToBusinessUnit, hasAccessToDepartment,
-  stripLeadByRole,
+  stripLeadByRole, canDeleteLead,
 } from '@/lib/permissions'
 import type { Role } from '@/generated/prisma/client'
 import * as z from 'zod'
@@ -461,6 +461,24 @@ export async function updateLeadFields(formData: FormData) {
 
   revalidatePath('/leads')
   revalidatePath(`/leads/${leadId}`)
+}
+
+// ─── Delete Lead (SUPER_ADMIN only) ──────────────────────────────────────────
+
+export async function deleteLead(leadId: string) {
+  const session = await auth()
+  if (!session?.user) throw new Error('Unauthorized')
+  if (!canDeleteLead(session.user.role as Role)) throw new Error('Forbidden')
+
+  const lead = await db.lead.findUnique({ where: { id: leadId }, select: { id: true } })
+  if (!lead) throw new Error('Lead not found')
+
+  await db.leadHistory.deleteMany({ where: { leadId } })
+  await db.notification.deleteMany({ where: { leadId } })
+  await db.lead.delete({ where: { id: leadId } })
+
+  revalidatePath('/leads')
+  redirect('/leads')
 }
 
 // ─── Fetch leads (list) ───────────────────────────────────────────────────────

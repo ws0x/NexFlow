@@ -1,7 +1,7 @@
 import { auth } from '@/lib/auth'
 import { redirect, notFound } from 'next/navigation'
 import { db } from '@/lib/db'
-import { stripLeadByRole, canSendToSales, canEditSalesFields, canViewSalesFields, canViewMarketingFields, canEditMutualFields } from '@/lib/permissions'
+import { stripLeadByRole, canSendToSales, canEditSalesFields, canViewSalesFields, canViewMarketingFields, canEditMutualFields, canDeleteLead } from '@/lib/permissions'
 import { Header } from '@/components/layout/header'
 import { LeadDetail } from '@/components/leads/lead-detail'
 import type { Role } from '@/generated/prisma/client'
@@ -89,6 +89,7 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
           canSendToSales={canSendToSales(role)}
           canEditSales={canEditSalesFields(role) && lead.sentToSales}
           canEditLead={canEditMutualFields(role)}
+          canDelete={canDeleteLead(role)}
           showSalesFields={canViewSalesFields(role)}
           showMarketingFields={canViewMarketingFields(role)}
           statusOptions={dropdownsByCategory['REQUEST_STATUS'] ?? []}

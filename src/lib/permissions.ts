@@ -61,6 +61,10 @@ export function canManageUsers(role: Role): boolean {
   return role === Role.SUPER_ADMIN
 }
 
+export function canDeleteLead(role: Role): boolean {
+  return role === Role.SUPER_ADMIN
+}
+
 // ─── Entity scope check ───────────────────────────────────────────────────────
 
 export function hasAccessToBusinessUnit(

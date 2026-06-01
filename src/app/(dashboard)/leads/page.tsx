@@ -25,6 +25,8 @@ export default async function LeadsPage({
     leadType?:   string
     sentToSales?: string
     page?:       string
+    sort?:       string
+    sortDir?:    string
   }>
 }) {
   await connection()
@@ -34,8 +36,19 @@ export default async function LeadsPage({
 
   const role   = session.user.role as Role
   const params = await searchParams
-  const page   = Math.max(1, Number(params.page ?? 1))
+  const page    = Math.max(1, Number(params.page ?? 1))
   const pageSize = 25
+
+  // ── Sort ──────────────────────────────────────────────────────────────────
+  const SORT_MAP: Record<string, string> = {
+    date:    'requestDate',
+    code:    'reqCode',
+    company: 'companyName',
+    entity:  'businessUnitId',
+    status:  'requestStatus',
+  }
+  const sortKey = SORT_MAP[params.sort ?? ''] ?? 'requestDate'
+  const sortDir = params.sortDir === 'asc' ? 'asc' : 'desc'
 
   // ── Where clause (role-scoped + filters) ───────────────────────────────────
   const where: any = {
@@ -98,7 +111,7 @@ export default async function LeadsPage({
   const [leads, total, businessUnits, statuses, sources, types] = await Promise.all([
     db.lead.findMany({
       where,
-      orderBy: { requestDate: 'desc' },
+      orderBy: { [sortKey]: sortDir },
       skip:    (page - 1) * pageSize,
       take:    pageSize,
       include: {
@@ -215,6 +228,8 @@ export default async function LeadsPage({
           page={page}
           pageSize={pageSize}
           role={role}
+          sort={(params.sort as any) ?? 'date'}
+          sortDir={params.sortDir === 'asc' ? 'asc' : 'desc'}
         />
       </div>
     </div>
