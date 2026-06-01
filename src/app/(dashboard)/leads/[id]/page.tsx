@@ -86,7 +86,7 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
         <LeadDetail
           lead={stripped as any}
           role={role}
-          canSendToSales={canSendToSales(role) && !lead.sentToSales}
+          canSendToSales={canSendToSales(role)}
           canEditSales={canEditSalesFields(role) && lead.sentToSales}
           canEditLead={canEditMutualFields(role)}
           showSalesFields={canViewSalesFields(role)}

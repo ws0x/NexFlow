@@ -181,20 +181,20 @@ export async function sendLeadToSales(leadId: string): Promise<{ waUrl: string }
 
   if (!lead) throw new Error('Lead not found')
   if (!hasAccessToBusinessUnit(session.user, lead.businessUnitId)) throw new Error('Forbidden')
-  if (lead.sentToSales) throw new Error('Already sent to sales')
 
+  const now = new Date()
   await db.lead.update({
     where: { id: leadId },
-    data: { sentToSales: true, sentToSalesAt: new Date(), leadStatus: 'SENT_TO_SALES' },
+    data: { sentToSales: true, sentToSalesAt: now, leadStatus: 'SENT_TO_SALES' },
   })
 
-  // Audit
+  // Audit — track every send (not just the first)
   await db.leadHistory.create({
     data: {
       leadId,
       fieldName:   'sentToSales',
-      oldValue:    'false',
-      newValue:    'true',
+      oldValue:    lead.sentToSales ? lead.sentToSalesAt?.toISOString() ?? 'true' : 'false',
+      newValue:    now.toISOString(),
       changedById: session.user.id,
     },
   })

@@ -42,10 +42,14 @@ export default async function LeadsPage({
     businessUnitId: { in: session.user.businessUnitIds },
   }
 
-  // SALES users only ever see their directed, sent-to-sales leads
+  // SALES users only ever see sent-to-sales leads in their entity.
+  // If they have departments assigned, further filter by department.
+  // If no departments assigned, they see all sent-to-sales leads in their entity.
   if (role === 'SALES') {
-    where.directedToDeptId = { in: session.user.departmentIds }
     where.sentToSales = true
+    if (session.user.departmentIds.length > 0) {
+      where.directedToDeptId = { in: session.user.departmentIds }
+    }
   }
 
   if (params.buId)   where.businessUnitId = params.buId

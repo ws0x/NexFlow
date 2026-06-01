@@ -4,6 +4,7 @@ import { Menu } from 'lucide-react'
 import { initials } from '@/lib/utils'
 import type { Role } from '@/generated/prisma/client'
 import { NotificationBell } from '@/components/layout/notification-bell'
+import { useMobileSidebar } from '@/components/layout/mobile-sidebar-context'
 
 interface HeaderProps {
   title: string
@@ -12,6 +13,13 @@ interface HeaderProps {
 }
 
 export function Header({ title, user, onMenuClick }: HeaderProps) {
+  const sidebar = useMobileSidebar()
+
+  function handleMenuClick() {
+    onMenuClick?.()
+    sidebar.open()
+  }
+
   return (
     <header
       className="flex items-center justify-between px-4 md:px-6 h-14 shrink-0"
@@ -20,7 +28,7 @@ export function Header({ title, user, onMenuClick }: HeaderProps) {
       <div className="flex items-center gap-3">
         {/* Mobile menu toggle */}
         <button
-          onClick={onMenuClick}
+          onClick={handleMenuClick}
           className="md:hidden p-1.5 rounded-lg"
           style={{ color: 'var(--nf-muted)' }}
         >

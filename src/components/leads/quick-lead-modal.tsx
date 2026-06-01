@@ -71,9 +71,18 @@ export function QuickLeadModal({ role, open, onClose, statusOptions }: Props) {
     }
   }, [open])
 
+  // REQ code format: [3 uppercase letters][1 digit year][2 digit month][2 digit day][4 digit seq]
+  // e.g. HSL506240001
+  const REQ_CODE_PATTERN = /^[A-Z]{3}\d{1}\d{2}\d{2}\d{4}$/
+
   async function handleSearch(e: React.FormEvent) {
     e.preventDefault()
-    if (!code.trim()) return
+    const trimmed = code.trim()
+    if (!trimmed) return
+    if (!REQ_CODE_PATTERN.test(trimmed)) {
+      setError('Invalid REQ code format. Expected e.g. HSL506240001')
+      return
+    }
     setError('')
     setPhase('loading')
     try {

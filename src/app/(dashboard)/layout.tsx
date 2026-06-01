@@ -3,6 +3,8 @@ import { redirect } from 'next/navigation'
 import { db } from '@/lib/db'
 import { Sidebar } from '@/components/layout/sidebar'
 import { MobileNav } from '@/components/layout/mobile-nav'
+import { MobileSidebarProvider } from '@/components/layout/mobile-sidebar-context'
+import { MobileSidebarDrawer } from '@/components/layout/mobile-sidebar-drawer'
 import type { Role } from '@/generated/prisma/client'
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -37,21 +39,26 @@ export default async function DashboardLayout({ children }: { children: React.Re
   }
 
   return (
-    <div className="flex h-screen overflow-hidden" style={{ background: 'var(--nf-bg)' }}>
-      {/* Sidebar — hidden on mobile, visible md+ */}
-      <div className="hidden md:flex shrink-0">
-        <Sidebar user={user} businessUnits={businessUnits} statusOptions={statusOptions} />
-      </div>
+    <MobileSidebarProvider>
+      <div className="flex h-screen overflow-hidden" style={{ background: 'var(--nf-bg)' }}>
+        {/* Desktop sidebar — hidden on mobile */}
+        <div className="hidden md:flex shrink-0">
+          <Sidebar user={user} businessUnits={businessUnits} statusOptions={statusOptions} />
+        </div>
 
-      {/* Main content — pb-16 on mobile to clear the bottom nav */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        <main className="flex-1 overflow-y-auto pb-16 md:pb-0">
-          {children}
-        </main>
-      </div>
+        {/* Mobile sidebar drawer */}
+        <MobileSidebarDrawer user={user} businessUnits={businessUnits} statusOptions={statusOptions} />
 
-      {/* Mobile bottom navigation */}
-      <MobileNav role={user.role} statusOptions={statusOptions} />
-    </div>
+        {/* Main content — pb-16 on mobile to clear the bottom nav */}
+        <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+          <main className="flex-1 overflow-y-auto pb-16 md:pb-0">
+            {children}
+          </main>
+        </div>
+
+        {/* Mobile bottom navigation */}
+        <MobileNav role={user.role} statusOptions={statusOptions} />
+      </div>
+    </MobileSidebarProvider>
   )
 }

@@ -207,25 +207,49 @@ export function LeadDetail({
           </span>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           {waUrl && (
             <a href={waUrl} target="_blank" rel="noopener noreferrer"
               className="btn-primary text-sm h-9 px-4">
               <ExternalLink className="w-4 h-4" /> Open WhatsApp
             </a>
           )}
-          {canSend && !lead.sentToSales && (
-            <button onClick={handleSendToSales} disabled={isPending}
-              className="btn-primary text-sm h-9 px-4">
-              {isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-              Send to Sales
-            </button>
-          )}
+
+          {/* Send to Sales — shown when user has permission */}
+          {canSend && (() => {
+            const hasPhone = !!lead.businessUnit.coordinatorPhone
+            const alreadySent = lead.sentToSales
+            return (
+              <div className="flex flex-col items-end gap-1">
+                {!hasPhone && (
+                  <p className="text-xs" style={{ color: 'var(--nf-warning, #F59E0B)' }}>
+                    ⚠ WhatsApp not configured for {lead.businessUnit.name}
+                  </p>
+                )}
+                <button
+                  onClick={handleSendToSales}
+                  disabled={isPending || !hasPhone}
+                  title={!hasPhone ? `Configure coordinator phone in Admin → Entities for ${lead.businessUnit.name}` : undefined}
+                  className="btn-primary text-sm h-9 px-4"
+                  style={!hasPhone ? { opacity: 0.45 } : undefined}>
+                  {isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                  {alreadySent ? 'Send Again' : 'Send to Sales'}
+                </button>
+                {alreadySent && lead.sentToSalesAt && (
+                  <p className="text-xs" style={{ color: 'var(--nf-subtle)' }}>
+                    Last sent {formatRelative(lead.sentToSalesAt)}
+                  </p>
+                )}
+              </div>
+            )
+          })()}
+
+          {/* "With Sales" badge shown when already sent (even alongside the button) */}
           {lead.sentToSales && (
             <div className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg"
               style={{ background: 'rgb(34 197 94 / 0.1)', color: '#86EFAC', border: '1px solid rgb(34 197 94 / 0.2)' }}>
               <CheckCircle2 className="w-3.5 h-3.5" />
-              With Sales {lead.sentToSalesAt && `· ${formatRelative(lead.sentToSalesAt)}`}
+              Sent to Sales
             </div>
           )}
         </div>
