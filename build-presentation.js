@@ -506,7 +506,7 @@ function addDivider(slide, x, y, w, color = C.border) {
     { val: '∞',          label: 'Audit Trail',      sub: 'Every change logged forever',      color: C.violet },
   ];
 
-  const sCardW = 2.55, sCardH = 1.18;
+  const sCardW = 2.55, sCardH = 1.32;
   const sStartX = (W - 3 * sCardW - 2 * 0.3) / 2;
 
   // Bottom caption bar (fills empty space below stat cards)
@@ -526,7 +526,7 @@ function addDivider(slide, x, y, w, color = C.border) {
 
   stats.forEach((s, i) => {
     const x = sStartX + i * (sCardW + 0.3);
-    const y = 2.7;
+    const y = 2.62;
     addCard(sl, x, y, sCardW, sCardH, { fill: C.surface, border: s.color + '50' });
     sl.addText(s.val, {
       x: x + 0.1, y: y + 0.08, w: sCardW - 0.2, h: 0.58,
