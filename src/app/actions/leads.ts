@@ -58,11 +58,30 @@ export async function createLead(formData: FormData) {
   if (!canCreateLead(session.user.role as Role)) throw new Error('Forbidden')
 
   const raw = Object.fromEntries(formData.entries())
+
+  // Normalise empty strings to undefined for all optional FK and string fields.
+  // If left as '', Prisma will try to set FK columns to '' which violates constraints.
+  function optStr(key: string) { return raw[key] ? raw[key] : undefined }
+
   const data = createLeadSchema.parse({
     ...raw,
-    newClient:        raw.newClient === 'true',
-    internalReferral: raw.internalReferral === 'true',
-    contactEmail:     raw.contactEmail || undefined,
+    newClient:            raw.newClient === 'true',
+    internalReferral:     raw.internalReferral === 'true',
+    contactEmail:         optStr('contactEmail'),
+    companyNameAr:        optStr('companyNameAr'),
+    companyWebsite:       optStr('companyWebsite'),
+    companyType:          optStr('companyType'),
+    companySector:        optStr('companySector'),
+    country:              optStr('country'),
+    city:                 optStr('city'),
+    location:             optStr('location'),
+    leadType:             optStr('leadType'),
+    referralFrom:         optStr('referralFrom'),
+    leadRequest:          optStr('leadRequest'),
+    leadSource:           optStr('leadSource'),
+    communicationChannel: optStr('communicationChannel'),
+    marketingNotes:       optStr('marketingNotes'),
+    directedToDeptId:     optStr('directedToDeptId'),  // Critical: empty string → FK violation
   })
 
   if (!hasAccessToBusinessUnit(session.user, data.businessUnitId)) {
@@ -472,12 +491,19 @@ export async function getLeads(filters?: {
     },
   }
 
-  // Sales: always need sentToSales=true; department filter only if they have departments assigned
-  // (entity-only Sales users see all leads in their entities)
+  // Sales: always need sentToSales=true.
+  // If departments are assigned, include leads directed to those departments OR leads
+  // with no directed department (NULL). SQL IN never matches NULL so we must do OR explicitly.
   if (role === 'SALES') {
     where.sentToSales = true
     if (departmentIds.length > 0) {
-      where.directedToDeptId = { in: departmentIds }
+      if (!where.AND) where.AND = []
+      where.AND.push({
+        OR: [
+          { directedToDeptId: { in: departmentIds } },
+          { directedToDeptId: null },
+        ],
+      })
     }
   }
 

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useTransition, useRef } from 'react'
+import { isRedirectError } from 'next/dist/client/components/redirect-error'
 import { createLead } from '@/app/actions/leads'
 import {
   Building2, User, FileText, Send,
@@ -253,8 +254,8 @@ export function NewLeadForm({ businessUnits, dropdownsPerEntity, globalDropdowns
       try {
         await createLead(fd)
       } catch (e: any) {
-        // Re-throw Next.js redirect — it's not an error, it's navigation
-        if (e?.digest?.startsWith('NEXT_REDIRECT')) throw e
+        // Re-throw Next.js redirect — it's navigation, not an error
+        if (isRedirectError(e)) throw e
         toast.error(e.message ?? 'Failed to create lead')
       }
     })

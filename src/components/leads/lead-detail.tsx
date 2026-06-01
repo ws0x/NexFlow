@@ -191,8 +191,10 @@ export function LeadDetail({
     <div className="max-w-4xl mx-auto space-y-4">
 
       {/* ── Status bar ── */}
-      <div className="card p-4 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-3 flex-wrap">
+      <div className="card p-4 space-y-3">
+
+        {/* Top row: REQ code + badges + date */}
+        <div className="flex items-center gap-2.5 flex-wrap">
           <span className="font-mono text-lg font-bold" style={{ color: 'var(--nf-accent)' }}>
             {lead.reqCode}
           </span>
@@ -202,57 +204,78 @@ export function LeadDetail({
           <span className={cn('badge ring-1', getStatusStyle(lead.requestStatus))}>
             {lead.requestStatus}
           </span>
-          <span className="text-xs" style={{ color: 'var(--nf-muted)' }}>
+          <span className="text-xs ml-auto" style={{ color: 'var(--nf-muted)' }}>
             {formatDate(lead.requestDate)}
           </span>
         </div>
 
-        <div className="flex items-center gap-2 flex-wrap">
-          {waUrl && (
-            <a href={waUrl} target="_blank" rel="noopener noreferrer"
-              className="btn-primary text-sm h-9 px-4">
-              <ExternalLink className="w-4 h-4" /> Open WhatsApp
-            </a>
-          )}
+        {/* ── Send to Sales action row (only when user has permission) ── */}
+        {canSend && (() => {
+          const hasPhone  = !!lead.businessUnit.coordinatorPhone
+          const sent      = lead.sentToSales
 
-          {/* Send to Sales — shown when user has permission */}
-          {canSend && (() => {
-            const hasPhone = !!lead.businessUnit.coordinatorPhone
-            const alreadySent = lead.sentToSales
-            return (
-              <div className="flex flex-col items-end gap-1">
-                {!hasPhone && (
-                  <p className="text-xs" style={{ color: 'var(--nf-warning, #F59E0B)' }}>
-                    ⚠ WhatsApp not configured for {lead.businessUnit.name}
-                  </p>
+          return (
+            <div
+              className="flex flex-col sm:flex-row sm:items-center gap-2 pt-1"
+              style={{ borderTop: '1px solid var(--nf-border)' }}>
+
+              {/* Left side: status info */}
+              <div className="flex items-center gap-2 flex-1 flex-wrap min-w-0">
+                {/* Sent badge */}
+                {sent && (
+                  <div
+                    className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg shrink-0"
+                    style={{ background: 'rgb(34 197 94 / 0.1)', color: '#86EFAC', border: '1px solid rgb(34 197 94 / 0.2)' }}>
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    Sent to Sales
+                    {lead.sentToSalesAt && (
+                      <span style={{ color: '#4ADE80', opacity: 0.7 }}>
+                        · {formatRelative(lead.sentToSalesAt)}
+                      </span>
+                    )}
+                  </div>
                 )}
+
+                {/* No-phone warning badge */}
+                {!hasPhone && (
+                  <div
+                    className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg"
+                    style={{ background: 'rgb(245 158 11 / 0.1)', color: '#FCD34D', border: '1px solid rgb(245 158 11 / 0.25)' }}
+                    title={`Go to Admin → Entities → ${lead.businessUnit.name} to configure`}>
+                    <span>⚠</span>
+                    WhatsApp not configured for <strong>{lead.businessUnit.name}</strong>
+                  </div>
+                )}
+              </div>
+
+              {/* Right side: action buttons */}
+              <div className="flex items-center gap-2 shrink-0">
+                {/* Open WhatsApp — appears after sending */}
+                {waUrl && (
+                  <a href={waUrl} target="_blank" rel="noopener noreferrer"
+                    className="btn-outline text-sm h-9 px-3">
+                    <ExternalLink className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">Open WhatsApp</span>
+                    <span className="sm:hidden">WhatsApp</span>
+                  </a>
+                )}
+
+                {/* Primary action button */}
                 <button
                   onClick={handleSendToSales}
                   disabled={isPending || !hasPhone}
-                  title={!hasPhone ? `Configure coordinator phone in Admin → Entities for ${lead.businessUnit.name}` : undefined}
-                  className="btn-primary text-sm h-9 px-4"
+                  title={!hasPhone ? `Configure coordinator phone in Admin → Entities → ${lead.businessUnit.name}` : undefined}
+                  className={sent ? 'btn-outline text-sm h-9 px-4' : 'btn-primary text-sm h-9 px-4'}
                   style={!hasPhone ? { opacity: 0.45 } : undefined}>
-                  {isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                  {alreadySent ? 'Send Again' : 'Send to Sales'}
+                  {isPending
+                    ? <Loader2 className="w-4 h-4 animate-spin" />
+                    : <Send className="w-4 h-4" />}
+                  {sent ? 'Send Again' : 'Send to Sales'}
                 </button>
-                {alreadySent && lead.sentToSalesAt && (
-                  <p className="text-xs" style={{ color: 'var(--nf-subtle)' }}>
-                    Last sent {formatRelative(lead.sentToSalesAt)}
-                  </p>
-                )}
               </div>
-            )
-          })()}
-
-          {/* "With Sales" badge shown when already sent (even alongside the button) */}
-          {lead.sentToSales && (
-            <div className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg"
-              style={{ background: 'rgb(34 197 94 / 0.1)', color: '#86EFAC', border: '1px solid rgb(34 197 94 / 0.2)' }}>
-              <CheckCircle2 className="w-3.5 h-3.5" />
-              Sent to Sales
             </div>
-          )}
-        </div>
+          )
+        })()}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">

@@ -28,16 +28,22 @@ export async function GET(req: Request) {
     },
   })
 
-  if (!lead) return NextResponse.json({ error: 'Lead not found' }, { status: 404 })
+  if (!lead) return NextResponse.json({ error: 'Lead not found. Check the REQ code and try again.' }, { status: 404 })
 
   if (!hasAccessToBusinessUnit(session.user, lead.businessUnitId)) {
-    return NextResponse.json({ error: 'Access denied' }, { status: 403 })
+    return NextResponse.json({
+      error: `This lead belongs to ${lead.businessUnit.name} — your account is not assigned to that entity. Contact your admin.`,
+    }, { status: 403 })
   }
 
   if (role === 'SALES') {
-    if (!lead.sentToSales) return NextResponse.json({ error: 'Lead not yet sent to sales' }, { status: 403 })
+    if (!lead.sentToSales) {
+      return NextResponse.json({ error: 'This lead has not been sent to Sales yet.' }, { status: 403 })
+    }
     if (!hasAccessToDepartment(session.user, lead.directedToDeptId)) {
-      return NextResponse.json({ error: 'Access denied' }, { status: 403 })
+      return NextResponse.json({
+        error: `This lead is directed to ${lead.directedToDept?.name ?? 'another department'} — not your assigned department.`,
+      }, { status: 403 })
     }
   }
 

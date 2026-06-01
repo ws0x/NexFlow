@@ -94,8 +94,8 @@ export function Sidebar({ user, businessUnits, statusOptions, collapsed }: Sideb
           )}
         </div>
 
-        {/* ── Entity chips ── */}
-        {!collapsed && businessUnits.length > 0 && (
+        {/* ── Entity chips — hidden for Super Admin (they have global access) ── */}
+        {!collapsed && user.role !== 'SUPER_ADMIN' && businessUnits.length > 0 && (
           <div className="px-3 pt-3 pb-1 flex flex-wrap gap-1.5">
             {businessUnits.map((bu) => (
               <span key={bu.id}

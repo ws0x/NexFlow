@@ -42,13 +42,20 @@ export default async function LeadsPage({
     businessUnitId: { in: session.user.businessUnitIds },
   }
 
-  // SALES users only ever see sent-to-sales leads in their entity.
-  // If they have departments assigned, further filter by department.
-  // If no departments assigned, they see all sent-to-sales leads in their entity.
+  // SALES: only see sent-to-sales leads.
+  // If departments are assigned, also include leads with null directedToDeptId
+  // (leads not routed to any specific department are visible to all dept-assigned sales).
+  // SQL "IN" never matches NULL, so we must union with "IS NULL" explicitly.
   if (role === 'SALES') {
     where.sentToSales = true
     if (session.user.departmentIds.length > 0) {
-      where.directedToDeptId = { in: session.user.departmentIds }
+      if (!where.AND) where.AND = []
+      where.AND.push({
+        OR: [
+          { directedToDeptId: { in: session.user.departmentIds } },
+          { directedToDeptId: null },
+        ],
+      })
     }
   }
 
@@ -56,14 +63,18 @@ export default async function LeadsPage({
   if (params.status) where.requestStatus  = params.status
 
   if (params.q) {
-    where.OR = [
-      { reqCode:       { contains: params.q, mode: 'insensitive' } },
-      { companyName:   { contains: params.q, mode: 'insensitive' } },
-      { companyNameAr: { contains: params.q, mode: 'insensitive' } },
-      { contactName:   { contains: params.q, mode: 'insensitive' } },
-      { contactNumber: { contains: params.q, mode: 'insensitive' } },
-      { contactEmail:  { contains: params.q, mode: 'insensitive' } },
-    ]
+    // Use AND to avoid overwriting any existing OR (e.g. dept filter above)
+    if (!where.AND) where.AND = []
+    where.AND.push({
+      OR: [
+        { reqCode:       { contains: params.q, mode: 'insensitive' } },
+        { companyName:   { contains: params.q, mode: 'insensitive' } },
+        { companyNameAr: { contains: params.q, mode: 'insensitive' } },
+        { contactName:   { contains: params.q, mode: 'insensitive' } },
+        { contactNumber: { contains: params.q, mode: 'insensitive' } },
+        { contactEmail:  { contains: params.q, mode: 'insensitive' } },
+      ],
+    })
   }
 
   if (params.dateFrom || params.dateTo) {
@@ -203,6 +214,7 @@ export default async function LeadsPage({
           total={total}
           page={page}
           pageSize={pageSize}
+          role={role}
         />
       </div>
     </div>

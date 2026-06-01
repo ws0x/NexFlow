@@ -25,9 +25,10 @@ interface LeadsTableProps {
   total:    number
   page:     number
   pageSize: number
+  role?:    string
 }
 
-export function LeadsTable({ leads, total, page, pageSize }: LeadsTableProps) {
+export function LeadsTable({ leads, total, page, pageSize, role }: LeadsTableProps) {
   const router   = useRouter()
   const pathname = usePathname()
   const [, startTransition] = useTransition()
@@ -49,20 +50,33 @@ export function LeadsTable({ leads, total, page, pageSize }: LeadsTableProps) {
           <table className="w-full text-sm">
             <thead>
               <tr style={{ borderBottom: '1px solid var(--nf-border)', background: 'var(--nf-surface-2)' }}>
-                {['REQ Code', 'Date', 'Company', 'Contact', 'Entity', 'Department', 'Status', ''].map((h) => (
-                  <th key={h} className="px-4 py-2.5 text-left text-xs font-medium"
-                    style={{ color: 'var(--nf-muted)' }}>
-                    {h}
-                  </th>
-                ))}
+                <th className="px-4 py-2.5 text-left text-xs font-medium" style={{ color: 'var(--nf-muted)' }}>REQ Code</th>
+                <th className="px-4 py-2.5 text-left text-xs font-medium hidden md:table-cell" style={{ color: 'var(--nf-muted)' }}>Date</th>
+                <th className="px-4 py-2.5 text-left text-xs font-medium" style={{ color: 'var(--nf-muted)' }}>Company</th>
+                <th className="px-4 py-2.5 text-left text-xs font-medium hidden sm:table-cell" style={{ color: 'var(--nf-muted)' }}>Contact</th>
+                <th className="px-4 py-2.5 text-left text-xs font-medium hidden lg:table-cell" style={{ color: 'var(--nf-muted)' }}>Entity</th>
+                <th className="px-4 py-2.5 text-left text-xs font-medium hidden xl:table-cell" style={{ color: 'var(--nf-muted)' }}>Department</th>
+                <th className="px-4 py-2.5 text-left text-xs font-medium" style={{ color: 'var(--nf-muted)' }}>Status</th>
+                <th className="px-4 py-2.5" />
               </tr>
             </thead>
             <tbody>
               {leads.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-4 py-14 text-center text-sm"
-                    style={{ color: 'var(--nf-muted)' }}>
-                    No leads match your filters
+                  <td colSpan={8} className="px-4 py-14 text-center">
+                    <p className="text-sm font-medium" style={{ color: 'var(--nf-muted)' }}>
+                      No leads found
+                    </p>
+                    {role === 'SALES' ? (
+                      <p className="text-xs mt-1.5 max-w-sm mx-auto" style={{ color: 'var(--nf-subtle)' }}>
+                        You can only see leads that have been sent to Sales for your entity.
+                        If you expect leads here, confirm with your admin that your entity and department assignments are correct.
+                      </p>
+                    ) : (
+                      <p className="text-xs mt-1" style={{ color: 'var(--nf-subtle)' }}>
+                        Try adjusting your filters
+                      </p>
+                    )}
                   </td>
                 </tr>
               ) : leads.map((lead) => (
@@ -71,14 +85,18 @@ export function LeadsTable({ leads, total, page, pageSize }: LeadsTableProps) {
 
                   {/* REQ Code */}
                   <td className="px-4 py-3">
-                    <span className="font-mono text-xs font-semibold"
+                    <span className="font-mono text-xs font-semibold block"
                       style={{ color: 'var(--nf-accent)' }}>
                       {lead.reqCode}
                     </span>
+                    {/* On mobile: show entity badge inline */}
+                    <span className={`badge ${getBUStyle(lead.businessUnit.prefix)} mt-1 lg:hidden`}>
+                      {lead.businessUnit.prefix}
+                    </span>
                   </td>
 
-                  {/* Date */}
-                  <td className="px-4 py-3 text-xs whitespace-nowrap"
+                  {/* Date — hidden on mobile */}
+                  <td className="px-4 py-3 text-xs whitespace-nowrap hidden md:table-cell"
                     style={{ color: 'var(--nf-muted)' }}>
                     {formatDate(lead.requestDate)}
                   </td>
@@ -93,38 +111,44 @@ export function LeadsTable({ leads, total, page, pageSize }: LeadsTableProps) {
                         {lead.leadType}
                       </p>
                     )}
+                    {/* On mobile: show date inline */}
+                    <p className="text-xs mt-0.5 md:hidden" style={{ color: 'var(--nf-subtle)' }}>
+                      {formatDate(lead.requestDate)}
+                    </p>
                   </td>
 
-                  {/* Contact */}
-                  <td className="px-4 py-3">
+                  {/* Contact — hidden on xs */}
+                  <td className="px-4 py-3 hidden sm:table-cell">
                     <p className="text-sm" style={{ color: 'var(--nf-text)' }}>{lead.contactName}</p>
                     <p className="text-xs font-mono mt-0.5" style={{ color: 'var(--nf-subtle)' }}>
                       {lead.contactNumber}
                     </p>
                   </td>
 
-                  {/* Entity */}
-                  <td className="px-4 py-3">
+                  {/* Entity — hidden below lg */}
+                  <td className="px-4 py-3 hidden lg:table-cell">
                     <span className={`badge ${getBUStyle(lead.businessUnit.prefix)}`}>
                       {lead.businessUnit.prefix}
                     </span>
                   </td>
 
-                  {/* Dept */}
-                  <td className="px-4 py-3 text-xs" style={{ color: 'var(--nf-muted)' }}>
+                  {/* Dept — hidden below xl */}
+                  <td className="px-4 py-3 text-xs hidden xl:table-cell" style={{ color: 'var(--nf-muted)' }}>
                     {lead.directedToDept?.name ?? '—'}
                   </td>
 
                   {/* Status */}
                   <td className="px-4 py-3">
-                    <span className={`badge ring-1 ${getStatusStyle(lead.requestStatus)}`}>
+                    <span className={`badge ring-1 ${getStatusStyle(lead.requestStatus)}`}
+                      style={{ whiteSpace: 'nowrap' }}>
                       {lead.requestStatus}
                     </span>
                   </td>
 
                   {/* Action */}
                   <td className="px-4 py-3">
-                    <Link href={`/leads/${lead.id}`} className="text-xs btn-outline h-7 px-3">
+                    <Link href={`/leads/${lead.id}`} className="text-xs btn-outline h-7 px-3"
+                      style={{ whiteSpace: 'nowrap' }}>
                       View
                     </Link>
                   </td>
