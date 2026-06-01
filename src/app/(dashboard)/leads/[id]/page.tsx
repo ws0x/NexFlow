@@ -48,17 +48,30 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
       orderBy: { order: 'asc' },
       select: { id: true, name: true },
     }),
+    // Fetch entity-scoped + global options for the lead's entity
     db.dropdownOption.findMany({
       where: {
         isActive: true,
         category: { in: ['REQUEST_STATUS', 'LEAD_SOURCE', 'COMMUNICATION_CHANNEL'] },
+        OR: [
+          { entityScope: 'GLOBAL' },
+          { entityScope: lead.businessUnitId },
+        ],
       },
       orderBy: { order: 'asc' },
-      select: { category: true, value: true },
+      select: { category: true, value: true, entityScope: true },
     }),
   ])
 
-  const dropdownsByCategory = dropdownRows.reduce<Record<string, string[]>>((acc, d: any) => {
+  // Prefer entity-specific values; fall back to global when no entity override exists
+  const entitySpecific: Record<string, boolean> = {}
+  for (const d of dropdownRows as any[]) {
+    if (d.entityScope !== 'GLOBAL') entitySpecific[d.category] = true
+  }
+
+  const dropdownsByCategory = (dropdownRows as any[]).reduce<Record<string, string[]>>((acc, d) => {
+    // Skip global if entity-specific exists for this category
+    if (d.entityScope === 'GLOBAL' && entitySpecific[d.category]) return acc
     if (!acc[d.category]) acc[d.category] = []
     acc[d.category].push(d.value)
     return acc

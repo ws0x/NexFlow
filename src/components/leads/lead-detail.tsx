@@ -7,6 +7,7 @@ import {
   ExternalLink, Loader2, History, ChevronDown, ChevronUp,
   MessageSquare, Tag, Pencil, X,
 } from 'lucide-react'
+import { VoiceRecordButton } from '@/components/ui/voice-record-button'
 import {
   formatDate, formatRelative, getStatusStyle, getBUStyle, LEAD_STATUS_LABELS,
 } from '@/lib/utils'
@@ -339,9 +340,9 @@ export function LeadDetail({
                       options={channelOptions}
                       onChange={(v) => setMarketingForm((f) => ({ ...f, communicationChannel: v }))} />
                   </Grid2>
-                  <EField label="Lead Request" value={marketingForm.leadRequest} multiline wide
+                  <EField label="Lead Request" value={marketingForm.leadRequest} multiline wide voice
                     onChange={(v) => setMarketingForm((f) => ({ ...f, leadRequest: v }))} />
-                  <EField label="Marketing Notes" value={marketingForm.marketingNotes} multiline wide
+                  <EField label="Marketing Notes" value={marketingForm.marketingNotes} multiline wide voice
                     onChange={(v) => setMarketingForm((f) => ({ ...f, marketingNotes: v }))} />
                 </div>
               ) : (
@@ -401,14 +402,25 @@ export function LeadDetail({
                       className="input-base text-sm h-10"
                     />
                   </div>
-                  <div className="space-y-1">
-                    <label className="text-xs font-medium" style={{ color: 'var(--nf-muted)' }}>
-                      Sales Response
-                    </label>
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <label className="text-xs font-medium" style={{ color: 'var(--nf-muted)' }}>
+                        Sales Response
+                      </label>
+                      <VoiceRecordButton
+                        onTranscript={(t) => setSalesForm((f) => ({
+                          ...f,
+                          salesResponse: f.salesResponse ? f.salesResponse + '\n' + t : t,
+                        }))}
+                        currentValue={salesForm.salesResponse}
+                        mode="append"
+                        className="text-[11px] py-1 px-2"
+                      />
+                    </div>
                     <textarea
                       value={salesForm.salesResponse}
                       onChange={(e) => setSalesForm((f) => ({ ...f, salesResponse: e.target.value }))}
-                      placeholder="Your response or outcome notes…"
+                      placeholder="Your response or outcome notes… (or tap Record to dictate)"
                       rows={3}
                       className="input-base text-sm resize-none"
                     />
@@ -618,22 +630,33 @@ function ESelectField({ label, value, onChange, options, wide }: {
 }
 
 /** Editable field */
-function EField({ label, value, onChange, mono, wide, multiline, required }: {
+function EField({ label, value, onChange, mono, wide, multiline, required, voice }: {
   label: string; value: string; onChange: (v: string) => void
   mono?: boolean; wide?: boolean; multiline?: boolean; required?: boolean
+  voice?: boolean
 }) {
   return (
     <div className={wide ? 'col-span-2' : ''}>
-      <label className="text-xs mb-1 block" style={{ color: 'var(--nf-muted)' }}>
-        {label}{required && <span style={{ color: '#EF4444' }}> *</span>}
-      </label>
+      <div className="flex items-center justify-between gap-2 mb-1">
+        <label className="text-xs" style={{ color: 'var(--nf-muted)' }}>
+          {label}{required && <span style={{ color: '#EF4444' }}> *</span>}
+        </label>
+        {voice && multiline && (
+          <VoiceRecordButton
+            onTranscript={(t) => onChange(value ? value + '\n' + t : t)}
+            currentValue={value}
+            mode="append"
+            className="text-[11px] py-0.5 px-2 shrink-0"
+          />
+        )}
+      </div>
       {multiline ? (
         <textarea
           value={value}
           onChange={(e) => onChange(e.target.value)}
           rows={3}
           className="input-base text-sm resize-none w-full"
-          placeholder={label}
+          placeholder={`${label}${voice ? ' (or tap Record to dictate)' : ''}`}
         />
       ) : (
         <input

@@ -1,14 +1,16 @@
 'use client'
 
+import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { signOut } from 'next-auth/react'
 import {
-  Zap, LayoutDashboard, PlusCircle, List, BarChart3,
-  Settings, LogOut, ChevronRight, Bell, Users, Database, Upload,
+  Zap, PlusCircle, List, BarChart3,
+  Settings, LogOut, ChevronRight, Users, Database, Upload, Search,
 } from 'lucide-react'
-import { cn, initials, ROLE_COLORS_SIMPLE } from '@/lib/utils'
+import { cn, initials } from '@/lib/utils'
 import type { Role } from '@/generated/prisma/client'
+import { QuickLeadModal } from '@/components/leads/quick-lead-modal'
 
 interface NavItem {
   href: string
@@ -18,14 +20,17 @@ interface NavItem {
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { href: '/leads/new',               label: 'New Lead',       icon: PlusCircle, roles: ['MARKETING', 'SUPER_ADMIN'] },
-  { href: '/leads',                   label: 'Leads',          icon: List,       roles: ['MARKETING', 'SALES', 'MANAGER', 'SUPER_ADMIN'] },
-  { href: '/leads/import',            label: 'Import',         icon: Upload,     roles: ['MARKETING', 'SUPER_ADMIN'] },
-  { href: '/analytics',               label: 'Analytics',      icon: BarChart3,  roles: ['MANAGER', 'SUPER_ADMIN'] },
-  { href: '/admin',                   label: 'Admin',          icon: Settings,   roles: ['SUPER_ADMIN'] },
-  { href: '/admin/users',             label: 'Users',          icon: Users,      roles: ['SUPER_ADMIN'] },
-  { href: '/admin/entities',           label: 'Entities',       icon: Database,   roles: ['SUPER_ADMIN'] },
+  { href: '/leads/new',    label: 'New Lead',  icon: PlusCircle, roles: ['MARKETING', 'SUPER_ADMIN'] },
+  { href: '/leads',        label: 'Leads',     icon: List,       roles: ['MARKETING', 'SALES', 'MANAGER', 'SUPER_ADMIN'] },
+  { href: '/leads/import', label: 'Import',    icon: Upload,     roles: ['MARKETING', 'SUPER_ADMIN'] },
+  { href: '/analytics',    label: 'Analytics', icon: BarChart3,  roles: ['MANAGER', 'SUPER_ADMIN'] },
+  { href: '/admin',        label: 'Admin',     icon: Settings,   roles: ['SUPER_ADMIN'] },
+  { href: '/admin/users',  label: 'Users',     icon: Users,      roles: ['SUPER_ADMIN'] },
+  { href: '/admin/entities', label: 'Entities', icon: Database,  roles: ['SUPER_ADMIN'] },
 ]
+
+// Roles that can use Quick Lead Access
+const QUICK_ACCESS_ROLES: Role[] = ['MARKETING', 'SALES', 'SUPER_ADMIN']
 
 interface SidebarProps {
   user: {
@@ -35,6 +40,7 @@ interface SidebarProps {
     businessUnitIds: string[]
   }
   businessUnits: { id: string; name: string; prefix: string }[]
+  statusOptions: string[]
   collapsed?: boolean
 }
 
@@ -52,107 +58,137 @@ const ROLE_COLOR: Record<Role, string> = {
   SALES:       'text-green-400',
 }
 
-export function Sidebar({ user, businessUnits, collapsed }: SidebarProps) {
-  const pathname = usePathname()
+export function Sidebar({ user, businessUnits, statusOptions, collapsed }: SidebarProps) {
+  const pathname            = usePathname()
+  const [quickOpen, setQuickOpen] = useState(false)
 
   const visibleNav = NAV_ITEMS.filter((item) =>
     (item.roles as string[]).includes(user.role)
   )
 
+  const showQuickAccess = (QUICK_ACCESS_ROLES as string[]).includes(user.role)
+
   return (
-    <aside
-      className="flex flex-col h-full"
-      style={{
-        background: 'var(--nf-surface)',
-        borderRight: '1px solid var(--nf-border)',
-        width: collapsed ? '64px' : '220px',
-        transition: 'width 0.2s ease',
-        minWidth: collapsed ? '64px' : '220px',
-      }}>
+    <>
+      <aside
+        className="flex flex-col h-full"
+        style={{
+          background: 'var(--nf-surface)',
+          borderRight: '1px solid var(--nf-border)',
+          width: collapsed ? '64px' : '220px',
+          transition: 'width 0.2s ease',
+          minWidth: collapsed ? '64px' : '220px',
+        }}>
 
-      {/* ── Logo ── */}
-      <div className="flex items-center gap-2.5 px-4 py-5 shrink-0"
-        style={{ borderBottom: '1px solid var(--nf-border)' }}>
-        <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
-          style={{ background: 'linear-gradient(135deg, #06B6D4, #6366F1)' }}>
-          <Zap className="w-4 h-4 text-white" strokeWidth={2.5} />
-        </div>
-        {!collapsed && (
-          <span className="font-bold text-base tracking-tight" style={{ color: 'var(--nf-text)' }}>
-            NexFlow
-          </span>
-        )}
-      </div>
-
-      {/* ── Entity chips ── */}
-      {!collapsed && businessUnits.length > 0 && (
-        <div className="px-3 pt-3 pb-1 flex flex-wrap gap-1.5">
-          {businessUnits.map((bu) => (
-            <span key={bu.id}
-              className="text-xs font-medium px-2 py-0.5 rounded-full"
-              style={{ background: 'var(--nf-surface-2)', color: 'var(--nf-muted)', border: '1px solid var(--nf-border)' }}>
-              {bu.name}
-            </span>
-          ))}
-        </div>
-      )}
-
-      {/* ── Nav ── */}
-      <nav className="flex-1 overflow-y-auto px-2 py-3 space-y-0.5">
-        {visibleNav.map((item) => {
-          const Icon = item.icon
-          const isActive = pathname === item.href || pathname.startsWith(item.href + '/')
-          // Don't mark /leads as active when on sub-pages like /leads/new or /leads/import
-          const active = item.href === '/leads'
-            ? (pathname === '/leads' || (pathname.startsWith('/leads/') && !pathname.startsWith('/leads/new') && !pathname.startsWith('/leads/import')))
-            : isActive
-
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={cn('nav-item', active && 'nav-item-active')}
-              title={collapsed ? item.label : undefined}>
-              <Icon className="w-4 h-4 shrink-0" />
-              {!collapsed && <span>{item.label}</span>}
-              {!collapsed && active && (
-                <ChevronRight className="w-3 h-3 ml-auto opacity-60" />
-              )}
-            </Link>
-          )
-        })}
-      </nav>
-
-      {/* ── User footer ── */}
-      <div className="px-2 py-3 space-y-1 shrink-0" style={{ borderTop: '1px solid var(--nf-border)' }}>
-        {/* User info */}
-        <div className={cn('flex items-center gap-2.5 px-2 py-2 rounded-lg',
-          !collapsed && 'min-w-0')}>
-          <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
-            style={{ background: 'linear-gradient(135deg, #06B6D4, #6366F1)', color: 'white' }}>
-            {initials(user.name)}
+        {/* ── Logo ── */}
+        <div className="flex items-center gap-2.5 px-4 py-5 shrink-0"
+          style={{ borderBottom: '1px solid var(--nf-border)' }}>
+          <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
+            style={{ background: 'linear-gradient(135deg, #06B6D4, #6366F1)' }}>
+            <Zap className="w-4 h-4 text-white" strokeWidth={2.5} />
           </div>
           {!collapsed && (
-            <div className="min-w-0 flex-1">
-              <p className="text-xs font-medium truncate" style={{ color: 'var(--nf-text)' }}>
-                {user.name}
-              </p>
-              <p className={cn('text-xs font-medium', ROLE_COLOR[user.role])}>
-                {ROLE_LABEL[user.role]}
-              </p>
-            </div>
+            <span className="font-bold text-base tracking-tight" style={{ color: 'var(--nf-text)' }}>
+              NexFlow
+            </span>
           )}
         </div>
 
-        {/* Sign out */}
-        <button
-          onClick={() => signOut({ callbackUrl: '/login' })}
-          className="nav-item w-full"
-          title={collapsed ? 'Sign out' : undefined}>
-          <LogOut className="w-4 h-4 shrink-0" />
-          {!collapsed && <span>Sign out</span>}
-        </button>
-      </div>
-    </aside>
+        {/* ── Entity chips ── */}
+        {!collapsed && businessUnits.length > 0 && (
+          <div className="px-3 pt-3 pb-1 flex flex-wrap gap-1.5">
+            {businessUnits.map((bu) => (
+              <span key={bu.id}
+                className="text-xs font-medium px-2 py-0.5 rounded-full"
+                style={{ background: 'var(--nf-surface-2)', color: 'var(--nf-muted)', border: '1px solid var(--nf-border)' }}>
+                {bu.name}
+              </span>
+            ))}
+          </div>
+        )}
+
+        {/* ── Quick Lead Access ── */}
+        {showQuickAccess && (
+          <div className="px-2 pt-3 pb-1">
+            <button
+              onClick={() => setQuickOpen(true)}
+              className={cn(
+                'w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm font-medium transition-all',
+                'border border-dashed',
+              )}
+              style={{
+                background: 'var(--nf-accent-glow)',
+                borderColor: 'var(--nf-accent)',
+                color: 'var(--nf-accent)',
+              }}
+              title={collapsed ? 'Quick Lead Access' : undefined}>
+              <Search className="w-4 h-4 shrink-0" />
+              {!collapsed && <span>Quick Lead</span>}
+            </button>
+          </div>
+        )}
+
+        {/* ── Nav ── */}
+        <nav className="flex-1 overflow-y-auto px-2 py-2 space-y-0.5">
+          {visibleNav.map((item) => {
+            const Icon = item.icon
+            const isActive = pathname === item.href || pathname.startsWith(item.href + '/')
+            const active = item.href === '/leads'
+              ? (pathname === '/leads' || (pathname.startsWith('/leads/') && !pathname.startsWith('/leads/new') && !pathname.startsWith('/leads/import')))
+              : isActive
+
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={cn('nav-item', active && 'nav-item-active')}
+                title={collapsed ? item.label : undefined}>
+                <Icon className="w-4 h-4 shrink-0" />
+                {!collapsed && <span>{item.label}</span>}
+                {!collapsed && active && (
+                  <ChevronRight className="w-3 h-3 ml-auto opacity-60" />
+                )}
+              </Link>
+            )
+          })}
+        </nav>
+
+        {/* ── User footer ── */}
+        <div className="px-2 py-3 space-y-1 shrink-0" style={{ borderTop: '1px solid var(--nf-border)' }}>
+          <div className={cn('flex items-center gap-2.5 px-2 py-2 rounded-lg', !collapsed && 'min-w-0')}>
+            <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
+              style={{ background: 'linear-gradient(135deg, #06B6D4, #6366F1)', color: 'white' }}>
+              {initials(user.name)}
+            </div>
+            {!collapsed && (
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-medium truncate" style={{ color: 'var(--nf-text)' }}>
+                  {user.name}
+                </p>
+                <p className={cn('text-xs font-medium', ROLE_COLOR[user.role])}>
+                  {ROLE_LABEL[user.role]}
+                </p>
+              </div>
+            )}
+          </div>
+
+          <button
+            onClick={() => signOut({ callbackUrl: '/login' })}
+            className="nav-item w-full"
+            title={collapsed ? 'Sign out' : undefined}>
+            <LogOut className="w-4 h-4 shrink-0" />
+            {!collapsed && <span>Sign out</span>}
+          </button>
+        </div>
+      </aside>
+
+      {/* Quick Lead Access modal */}
+      <QuickLeadModal
+        role={user.role}
+        open={quickOpen}
+        onClose={() => setQuickOpen(false)}
+        statusOptions={statusOptions}
+      />
+    </>
   )
 }

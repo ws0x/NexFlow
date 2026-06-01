@@ -192,9 +192,9 @@ async function main() {
 
     for (const value of values) {
       await db.dropdownOption.upsert({
-        where: { category_value: { category, value } },
+        where: { category_value_entityScope: { category, value, entityScope: 'GLOBAL' } },
         update: {},
-        create: { category, value, order: nextOrder++ },
+        create: { category, value, order: nextOrder++, entityScope: 'GLOBAL' },
       })
     }
   }

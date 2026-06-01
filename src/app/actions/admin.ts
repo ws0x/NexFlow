@@ -27,7 +27,7 @@ const createUserSchema = z.object({
   password:        z.string().min(8, { error: 'Password must be at least 8 characters' }),
   role:            z.enum(['SUPER_ADMIN', 'MANAGER', 'MARKETING', 'SALES']),
   phone:           z.string().optional(),
-  businessUnitIds: z.string(), // comma-separated
+  businessUnitIds: z.string(),
   departmentIds:   z.string().optional(),
 })
 
@@ -35,7 +35,7 @@ const updateUserSchema = z.object({
   id:              z.string(),
   name:            z.string().min(2, { error: 'Name must be at least 2 characters' }),
   email:           z.email({ error: 'Invalid email address' }),
-  password:        z.string().optional(), // only if changing
+  password:        z.string().optional(),
   role:            z.enum(['SUPER_ADMIN', 'MANAGER', 'MARKETING', 'SALES']),
   phone:           z.string().optional(),
   businessUnitIds: z.string(),
@@ -47,14 +47,14 @@ const updateUserSchema = z.object({
 export async function createUser(formData: FormData) {
   await requireAdmin()
 
-  const raw = Object.fromEntries(formData.entries())
+  const raw  = Object.fromEntries(formData.entries())
   const data = createUserSchema.parse(raw)
 
   const existing = await db.user.findUnique({ where: { email: data.email } })
   if (existing) throw new Error('A user with this email already exists')
 
   const hashedPassword = await bcrypt.hash(data.password, 12)
-  const buIds = data.businessUnitIds.split(',').filter(Boolean)
+  const buIds   = data.businessUnitIds.split(',').filter(Boolean)
   const deptIds = data.departmentIds?.split(',').filter(Boolean) ?? []
 
   const user = await db.user.create({
@@ -67,14 +67,12 @@ export async function createUser(formData: FormData) {
     },
   })
 
-  // Assign BUs
   if (buIds.length > 0) {
     await db.userBusinessUnit.createMany({
       data: buIds.map((buId) => ({ userId: user.id, businessUnitId: buId })),
     })
   }
 
-  // Assign departments (for sales)
   if (deptIds.length > 0) {
     await db.userDepartment.createMany({
       data: deptIds.map((deptId) => ({ userId: user.id, departmentId: deptId })),
@@ -88,12 +86,11 @@ export async function createUser(formData: FormData) {
 export async function updateUser(formData: FormData) {
   await requireAdmin()
 
-  const raw = Object.fromEntries(formData.entries())
-  const data = updateUserSchema.parse(raw)
-  const buIds   = data.businessUnitIds.split(',').filter(Boolean)
+  const raw    = Object.fromEntries(formData.entries())
+  const data   = updateUserSchema.parse(raw)
+  const buIds  = data.businessUnitIds.split(',').filter(Boolean)
   const deptIds = data.departmentIds?.split(',').filter(Boolean) ?? []
 
-  // Check email uniqueness (excluding self)
   const existing = await db.user.findFirst({
     where: { email: data.email, NOT: { id: data.id } },
   })
@@ -112,7 +109,6 @@ export async function updateUser(formData: FormData) {
 
   await db.user.update({ where: { id: data.id }, data: updateData })
 
-  // Re-assign BUs (delete all then re-create)
   await db.userBusinessUnit.deleteMany({ where: { userId: data.id } })
   if (buIds.length > 0) {
     await db.userBusinessUnit.createMany({
@@ -120,7 +116,6 @@ export async function updateUser(formData: FormData) {
     })
   }
 
-  // Re-assign departments
   await db.userDepartment.deleteMany({ where: { userId: data.id } })
   if (deptIds.length > 0) {
     await db.userDepartment.createMany({
@@ -135,18 +130,12 @@ export async function updateUser(formData: FormData) {
 
 export async function toggleUserStatus(userId: string) {
   const session = await requireAdmin()
-
-  // Prevent self-deactivation
   if (userId === session.user.id) throw new Error('Cannot deactivate your own account')
 
   const user = await db.user.findUnique({ where: { id: userId }, select: { isActive: true } })
   if (!user) throw new Error('User not found')
 
-  await db.user.update({
-    where: { id: userId },
-    data:  { isActive: !user.isActive },
-  })
-
+  await db.user.update({ where: { id: userId }, data: { isActive: !user.isActive } })
   revalidatePath('/admin/users')
 }
 
@@ -167,8 +156,8 @@ export async function createEntity(formData: FormData) {
   const name   = (formData.get('name')   as string)?.trim()
   const prefix = (formData.get('prefix') as string)?.trim().toUpperCase()
 
-  if (!name || !prefix)    throw new Error('Name and prefix are required')
-  if (prefix.length > 6)   throw new Error('Prefix must be 6 characters or less')
+  if (!name || !prefix)             throw new Error('Name and prefix are required')
+  if (prefix.length > 6)            throw new Error('Prefix must be 6 characters or less')
   if (!/^[A-Z0-9]+$/.test(prefix)) throw new Error('Prefix must contain only letters and numbers')
 
   const existing = await db.businessUnit.findUnique({ where: { prefix } })
@@ -181,14 +170,14 @@ export async function createEntity(formData: FormData) {
 export async function updateBusinessUnit(formData: FormData) {
   await requireAdmin()
 
-  const id     = formData.get('id') as string
-  const name   = formData.get('name') as string
-  const phone  = formData.get('coordinatorPhone') as string
+  const id     = formData.get('id')                as string
+  const name   = formData.get('name')              as string
+  const phone  = formData.get('coordinatorPhone')  as string
   const apiKey = formData.get('coordinatorApiKey') as string
 
   await db.businessUnit.update({
     where: { id },
-    data:  {
+    data: {
       name,
       coordinatorPhone:  phone  || null,
       coordinatorApiKey: apiKey || null,
@@ -203,24 +192,27 @@ export async function updateBusinessUnit(formData: FormData) {
 export async function createDropdownOption(formData: FormData) {
   await requireAdmin()
 
-  const category = formData.get('category') as string
-  const value    = formData.get('value') as string
-  const valueAr  = formData.get('valueAr') as string | null
+  const category       = formData.get('category')       as string
+  const value          = formData.get('value')          as string
+  const valueAr        = (formData.get('valueAr')       as string) || null
+  const entityScope    = (formData.get('entityScope')   as string) || 'GLOBAL'
+  const businessUnitId = (formData.get('businessUnitId') as string) || null
 
   if (!category || !value) throw new Error('Category and value are required')
 
-  // Get max order for this category
   const maxOrder = await db.dropdownOption.aggregate({
-    where:   { category },
-    _max:    { order: true },
+    where: { category, entityScope },
+    _max:  { order: true },
   })
 
   await db.dropdownOption.create({
     data: {
       category,
       value,
-      valueAr: valueAr || null,
-      order:   (maxOrder._max.order ?? -1) + 1,
+      valueAr,
+      order:       (maxOrder._max.order ?? -1) + 1,
+      entityScope,
+      businessUnitId,
     },
   })
 
@@ -230,8 +222,8 @@ export async function createDropdownOption(formData: FormData) {
 export async function updateDropdownOption(formData: FormData) {
   await requireAdmin()
 
-  const id      = formData.get('id') as string
-  const value   = formData.get('value') as string
+  const id      = formData.get('id')      as string
+  const value   = formData.get('value')   as string
   const valueAr = formData.get('valueAr') as string | null
 
   await db.dropdownOption.update({
@@ -256,30 +248,59 @@ export async function toggleDropdownOption(id: string) {
   revalidatePath('/admin/dropdowns')
 }
 
-export async function reorderDropdownOptions(ids: string[]) {
-  await requireAdmin()
-
-  await Promise.all(
-    ids.map((id, index) =>
-      db.dropdownOption.update({ where: { id }, data: { order: index } })
-    )
-  )
-
-  revalidatePath('/admin/dropdowns')
-}
-
 export async function deleteDropdownOption(id: string) {
   await requireAdmin()
 
-  // Check if it's used by any lead before deleting
   const opt = await db.dropdownOption.findUnique({ where: { id } })
   if (!opt) throw new Error('Option not found')
 
-  // Soft delete (deactivate) instead of hard delete to preserve lead history
-  await db.dropdownOption.update({
-    where: { id },
-    data:  { isActive: false },
+  await db.dropdownOption.update({ where: { id }, data: { isActive: false } })
+  revalidatePath('/admin/dropdowns')
+}
+
+// ─── Field Permissions ────────────────────────────────────────────────────────
+
+export async function upsertFieldPermission(
+  role: string,
+  fieldName: string,
+  canView: boolean,
+  canEdit: boolean,
+) {
+  await requireAdmin()
+
+  await db.fieldPermission.upsert({
+    where:  { role_fieldName: { role: role as Role, fieldName } },
+    update: { canView, canEdit },
+    create: { role: role as Role, fieldName, canView, canEdit },
   })
 
-  revalidatePath('/admin/dropdowns')
+  revalidatePath('/admin/permissions')
+}
+
+export async function resetFieldPermission(role: string, fieldName: string) {
+  await requireAdmin()
+
+  await db.fieldPermission.deleteMany({
+    where: { role: role as Role, fieldName },
+  })
+
+  revalidatePath('/admin/permissions')
+}
+
+// ─── Lead Card Templates ──────────────────────────────────────────────────────
+
+export async function upsertCardTemplate(
+  entityScope: string,
+  businessUnitId: string | null,
+  fieldConfig: object,
+) {
+  await requireAdmin()
+
+  await db.leadCardTemplate.upsert({
+    where:  { entityScope },
+    update: { fieldConfig },
+    create: { entityScope, businessUnitId, fieldConfig },
+  })
+
+  revalidatePath('/admin/card-template')
 }

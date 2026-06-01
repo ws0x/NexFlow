@@ -1,79 +1,95 @@
 /**
  * WhatsApp integration — CallMeBot adapter.
- *
- * Setup per coordinator:
- *   1. Coordinator adds +34 644 60 49 48 to their WhatsApp contacts.
- *   2. They send the message: "I allow callmebot to send me messages"
- *   3. They receive their API key via WhatsApp.
- *   4. Admin saves the key in Entity → Coordinator API Key.
- *
- * API endpoint: GET https://api.callmebot.com/whatsapp.php?phone=PHONE&text=TEXT&apikey=KEY
- *
- * Fallback: if no API key is configured, we return a wa.me deep-link the user
- * can click to send manually.
+ * Card content is configurable via LeadCardTemplate in the Admin panel.
  */
+import type { CardField } from '@/components/admin/card-template-editor'
+import { DEFAULT_CARD_FIELDS } from '@/app/(dashboard)/admin/card-template/page'
 
 export interface LeadCardData {
-  reqCode: string
-  requestDate: Date
-  businessUnitName: string
-  companyName: string
-  companyType?: string | null
-  contactName: string
-  contactNumber: string
-  contactEmail?: string | null
-  country?: string | null
-  city?: string | null
-  companySector?: string | null
-  leadRequest?: string | null
-  leadSource?: string | null
+  reqCode:              string
+  requestDate:          Date
+  businessUnitName:     string
+  companyName:          string
+  companyType?:         string | null
+  contactName:          string
+  contactNumber:        string
+  contactEmail?:        string | null
+  country?:             string | null
+  city?:                string | null
+  companySector?:       string | null
+  leadRequest?:         string | null
+  leadSource?:          string | null
   communicationChannel?: string | null
-  leadType?: string | null
-  directedToDeptName?: string | null
-  marketingNotes?: string | null
+  leadType?:            string | null
+  directedToDeptName?:  string | null
+  marketingNotes?:      string | null
+  companyWebsite?:      string | null
+  newClient?:           boolean | null
+  referralFrom?:        string | null
 }
 
-/** Formats a lead into a WhatsApp-ready card message. */
-export function formatLeadCard(lead: LeadCardData): string {
+interface CardConfig {
+  fields:      CardField[]
+  headerTitle: string
+  footerText:  string
+}
+
+/** Renders one field line given the field config and lead data. */
+function renderField(field: CardField, lead: LeadCardData): string | null {
+  const k = field.key as keyof LeadCardData
+  const v = lead[k]
+  if (v === null || v === undefined || v === '') return null
+
+  // Special composite cases
+  if (field.key === 'country') {
+    const loc = [lead.city, lead.country].filter(Boolean).join(' — ')
+    return loc ? `${field.icon} ${loc}` : null
+  }
+  if (field.key === 'leadSource') {
+    const src = [lead.leadSource, lead.communicationChannel].filter(Boolean).join(' → ')
+    return src ? `${field.icon} Source: ${src}` : null
+  }
+  if (field.key === 'communicationChannel') return null // already handled via leadSource composite
+
+  return `${field.icon} ${field.label}: ${v}`
+}
+
+/** Formats a lead into a WhatsApp-ready card using the configured template. */
+export function formatLeadCard(
+  lead: LeadCardData,
+  config?: CardConfig | null,
+): string {
+  const cfg = config ?? { fields: DEFAULT_CARD_FIELDS, headerTitle: 'New Lead', footerText: '' }
+
   const date = lead.requestDate.toLocaleDateString('en-GB', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
+    day: '2-digit', month: 'short', year: 'numeric',
   })
 
-  const location = [lead.city, lead.country].filter(Boolean).join(' — ')
-  const source   = [lead.leadSource, lead.communicationChannel].filter(Boolean).join(' → ')
-
-  return [
-    `🔔 *New Lead — ${lead.reqCode}*`,
+  const lines: (string | null)[] = [
+    `🔔 *${cfg.headerTitle} — ${lead.reqCode}*`,
     `━━━━━━━━━━━━━━━━━━━━━━━━`,
     `📅 ${date}  |  ${lead.businessUnitName}`,
+    // Always show company name prominently
     `🏢 ${lead.companyName}${lead.companyType ? `  •  ${lead.companyType}` : ''}`,
     `📞 ${lead.contactName}  |  ${lead.contactNumber}`,
-    lead.contactEmail      ? `📧 ${lead.contactEmail}` : null,
-    location               ? `🌍 ${location}` : null,
-    lead.companySector     ? `🏭 Sector: ${lead.companySector}` : null,
-    lead.leadRequest       ? `📋 Request: ${lead.leadRequest}` : null,
-    source                 ? `🔗 Source: ${source}` : null,
-    lead.leadType          ? `🎯 Type: ${lead.leadType}` : null,
-    lead.directedToDeptName ? `👥 Directed to: ${lead.directedToDeptName}` : null,
-    lead.marketingNotes    ? `📝 Notes: ${lead.marketingNotes}` : null,
+    // Configured fields (skip always-present ones)
+    ...cfg.fields
+      .filter((f) => f.include && !['requestDate', 'businessUnitName', 'companyName', 'companyType', 'contactName', 'contactNumber'].includes(f.key))
+      .map((f) => renderField(f, lead)),
     `━━━━━━━━━━━━━━━━━━━━━━━━`,
+    cfg.footerText || null,
   ]
-    .filter(Boolean)
-    .join('\n')
+
+  return lines.filter(Boolean).join('\n')
 }
 
-/** Generates a wa.me deep-link (fallback when no API key is configured). */
+/** Generates a wa.me deep-link. */
 export function generateWaMeLink(phoneNumber: string, message: string): string {
   const cleaned = phoneNumber.replace(/\D/g, '')
   return `https://wa.me/${cleaned}?text=${encodeURIComponent(message)}`
 }
 
-/**
- * Sends a WhatsApp message via CallMeBot.
- * Returns true on success, false on failure (errors are non-fatal).
- */
+/** Sends via CallMeBot. */
 export async function sendViaCallMeBot(
   phone: string,
   apiKey: string,
@@ -81,11 +97,9 @@ export async function sendViaCallMeBot(
 ): Promise<boolean> {
   const cleaned = phone.replace(/\D/g, '')
   const url = `https://api.callmebot.com/whatsapp.php?phone=${cleaned}&text=${encodeURIComponent(message)}&apikey=${apiKey}`
-
   try {
-    const res = await fetch(url, { method: 'GET' })
+    const res  = await fetch(url, { method: 'GET' })
     const text = await res.text()
-    // CallMeBot returns "Message queued. Total Messages Sent: X" on success
     return res.ok && text.toLowerCase().includes('message')
   } catch {
     return false
@@ -93,23 +107,22 @@ export async function sendViaCallMeBot(
 }
 
 /**
- * Main entry point.
- * - If coordinatorApiKey is provided → sends via CallMeBot (automatic).
- * - Otherwise → returns a wa.me link for manual sending.
+ * Main entry point. Loads card template from DB if available.
+ * Falls back to default template when none configured.
  */
 export async function sendLeadToCoordinator(
   coordinatorPhone: string,
   lead: LeadCardData,
   coordinatorApiKey?: string | null,
+  cardConfig?: CardConfig | null,
 ): Promise<{ url: string; message: string; sent: boolean }> {
-  const message = formatLeadCard(lead)
+  const message = formatLeadCard(lead, cardConfig)
 
   if (coordinatorApiKey) {
     const sent = await sendViaCallMeBot(coordinatorPhone, coordinatorApiKey, message)
     return { url: generateWaMeLink(coordinatorPhone, message), message, sent }
   }
 
-  // Fallback: return the wa.me deep-link for manual send
   const url = generateWaMeLink(coordinatorPhone, message)
   return { url, message, sent: false }
 }

@@ -7,13 +7,17 @@ import {
   Mic, MicOff, ChevronRight, ChevronLeft,
   Loader2, CheckCircle2,
 } from 'lucide-react'
+import { VoiceRecordButton } from '@/components/ui/voice-record-button'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 
 interface Props {
   businessUnits: { id: string; name: string; prefix: string }[]
-  dropdowns: Record<string, string[]>
-  departments: { id: string; name: string }[]
+  /** Dropdowns resolved per entity — entity-specific values override global ones */
+  dropdownsPerEntity: Record<string, Record<string, string[]>>
+  /** Global fallback dropdowns (used when no entity is selected yet) */
+  globalDropdowns: Record<string, string[]>
+  departments: { id: string; name: string; businessUnitId?: string | null }[]
 }
 
 interface FormState {
@@ -165,13 +169,23 @@ function Toggle({ label, value, onChange, hint }: ToggleProps) {
 
 // ─── Main form component ──────────────────────────────────────────────────────
 
-export function NewLeadForm({ businessUnits, dropdowns, departments }: Props) {
+export function NewLeadForm({ businessUnits, dropdownsPerEntity, globalDropdowns, departments }: Props) {
   const [step, setStep]       = useState(1)
   const [form, setForm]       = useState<FormState>(INITIAL)
   const [errors, setErrors]   = useState<Partial<Record<keyof FormState, string>>>({})
   const [isPending, startTransition] = useTransition()
   const [isListening, setIsListening] = useState<string | null>(null)
   const recognitionRef        = useRef<any>(null)
+
+  // Entity-scoped dropdowns: switch when BU is selected
+  const dropdowns = form.businessUnitId
+    ? (dropdownsPerEntity[form.businessUnitId] ?? globalDropdowns)
+    : globalDropdowns
+
+  // Departments filtered to selected entity (or all if no BU yet)
+  const visibleDepts = form.businessUnitId
+    ? departments.filter((d) => !d.businessUnitId || d.businessUnitId === form.businessUnitId)
+    : departments
 
   function set<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((f) => ({ ...f, [key]: value }))
@@ -388,23 +402,22 @@ export function NewLeadForm({ businessUnits, dropdowns, departments }: Props) {
         {step === 3 && (
           <div className="space-y-4">
             <StepHeader icon={FileText} title="Lead Details" subtitle="What they need and how they found us" />
-            <div className="space-y-1">
-              <label className="text-xs font-medium flex items-center gap-1"
-                style={{ color: 'var(--nf-muted)' }}>
-                Lead Request
-                <button type="button"
-                  onClick={() => isListening === 'leadRequest' ? stopVoice() : startVoice('leadRequest')}
-                  className="ml-auto p-1 rounded transition-colors"
-                  style={{ color: isListening === 'leadRequest' ? 'var(--nf-accent)' : 'var(--nf-subtle)' }}>
-                  {isListening === 'leadRequest'
-                    ? <MicOff className="w-3.5 h-3.5 animate-pulse" />
-                    : <Mic className="w-3.5 h-3.5" />}
-                </button>
-              </label>
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between gap-2">
+                <label className="text-xs font-medium" style={{ color: 'var(--nf-muted)' }}>
+                  Lead Request
+                </label>
+                <VoiceRecordButton
+                  onTranscript={(t) => set('leadRequest', form.leadRequest ? form.leadRequest + '\n' + t : t)}
+                  currentValue={form.leadRequest}
+                  mode="append"
+                  className="text-[11px] py-0.5 px-2 shrink-0"
+                />
+              </div>
               <textarea
                 value={form.leadRequest}
                 onChange={(e) => set('leadRequest', e.target.value)}
-                placeholder="What is the lead requesting or looking for?"
+                placeholder="What is the lead requesting or looking for? (or tap Record to dictate)"
                 rows={3}
                 className="input-base text-sm resize-none" />
             </div>
@@ -414,23 +427,22 @@ export function NewLeadForm({ businessUnits, dropdowns, departments }: Props) {
               <SelectField label="Communication Channel" value={form.communicationChannel}
                 onChange={(v) => set('communicationChannel', v)} options={dropdowns.COMMUNICATION_CHANNEL ?? []} />
             </div>
-            <div className="space-y-1">
-              <label className="text-xs font-medium flex items-center gap-1"
-                style={{ color: 'var(--nf-muted)' }}>
-                Marketing Notes (internal)
-                <button type="button"
-                  onClick={() => isListening === 'marketingNotes' ? stopVoice() : startVoice('marketingNotes')}
-                  className="ml-auto p-1 rounded transition-colors"
-                  style={{ color: isListening === 'marketingNotes' ? 'var(--nf-accent)' : 'var(--nf-subtle)' }}>
-                  {isListening === 'marketingNotes'
-                    ? <MicOff className="w-3.5 h-3.5 animate-pulse" />
-                    : <Mic className="w-3.5 h-3.5" />}
-                </button>
-              </label>
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between gap-2">
+                <label className="text-xs font-medium" style={{ color: 'var(--nf-muted)' }}>
+                  Marketing Notes (internal)
+                </label>
+                <VoiceRecordButton
+                  onTranscript={(t) => set('marketingNotes', form.marketingNotes ? form.marketingNotes + '\n' + t : t)}
+                  currentValue={form.marketingNotes}
+                  mode="append"
+                  className="text-[11px] py-0.5 px-2 shrink-0"
+                />
+              </div>
               <textarea
                 value={form.marketingNotes}
                 onChange={(e) => set('marketingNotes', e.target.value)}
-                placeholder="Anything the sales team should know…"
+                placeholder="Anything the sales team should know… (or tap Record to dictate)"
                 rows={2}
                 className="input-base text-sm resize-none" />
             </div>
@@ -443,7 +455,7 @@ export function NewLeadForm({ businessUnits, dropdowns, departments }: Props) {
             <StepHeader icon={Send} title="Route Lead" subtitle="Which department should handle this lead?" />
 
             <div className="grid grid-cols-2 gap-2">
-              {departments.map((dept) => (
+              {visibleDepts.map((dept) => (
                 <button
                   key={dept.id}
                   type="button"

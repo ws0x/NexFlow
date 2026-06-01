@@ -10,12 +10,21 @@ const CATEGORY_LABELS: Record<string, string> = {
   COMPANY_SECTOR:        'Company Sector',
 }
 
-export default async function DropdownsPage() {
-  const options = await db.dropdownOption.findMany({
-    orderBy: [{ category: 'asc' }, { order: 'asc' }],
-  })
+export const metadata = { title: 'Dropdown Options' }
 
-  // Group by category
+export default async function DropdownsPage() {
+  const [options, businessUnits] = await Promise.all([
+    db.dropdownOption.findMany({
+      orderBy: [{ category: 'asc' }, { order: 'asc' }],
+    }),
+    db.businessUnit.findMany({
+      where: { isActive: true },
+      orderBy: { name: 'asc' },
+      select: { id: true, name: true, prefix: true },
+    }),
+  ])
+
+  // Group by category — include all entity scopes
   const grouped = options.reduce((acc: Record<string, any[]>, opt: any) => {
     if (!acc[opt.category]) acc[opt.category] = []
     acc[opt.category].push(opt)
@@ -35,11 +44,11 @@ export default async function DropdownsPage() {
           Dropdown Options
         </h2>
         <p className="text-sm" style={{ color: 'var(--nf-muted)' }}>
-          Manage the selectable values used throughout the app
+          Manage selectable values. Use the scope selector to set global defaults or entity-specific overrides.
         </p>
       </div>
 
-      <DropdownManager categories={categories} />
+      <DropdownManager categories={categories} businessUnits={businessUnits} />
     </div>
   )
 }

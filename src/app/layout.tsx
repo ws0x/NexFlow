@@ -20,14 +20,21 @@ export const metadata: Metadata = {
   icons: {
     icon: '/icon.svg',
     shortcut: '/icon.svg',
+    apple: '/icon.svg',
   },
-  appleWebApp: { capable: true, statusBarStyle: 'black-translucent', title: 'NexFlow' },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'black-translucent',
+    title: 'NexFlow',
+  },
 }
 
 export const viewport: Viewport = {
   themeColor: '#0F172A',
   width: 'device-width',
   initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -36,6 +43,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="h-full antialiased">
         {children}
         <Toaster
+          position="top-center"
           theme="dark"
           toastOptions={{
             style: {
@@ -43,6 +51,18 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               border: '1px solid #334155',
               color: '#F1F5F9',
             },
+          }}
+        />
+        {/* Register service worker for PWA */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              if ('serviceWorker' in navigator) {
+                window.addEventListener('load', function() {
+                  navigator.serviceWorker.register('/sw.js').catch(function(){});
+                });
+              }
+            `,
           }}
         />
       </body>

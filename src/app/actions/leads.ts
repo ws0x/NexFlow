@@ -223,28 +223,38 @@ export async function sendLeadToSales(leadId: string): Promise<{ waUrl: string }
   // Generate WhatsApp card link
   let waUrl = ''
   if (lead.businessUnit.coordinatorPhone) {
+    // Load card template: entity-specific first, then global fallback
+    const [entityTemplate, globalTemplate] = await Promise.all([
+      db.leadCardTemplate.findUnique({ where: { entityScope: lead.businessUnitId } }),
+      db.leadCardTemplate.findUnique({ where: { entityScope: 'GLOBAL' } }),
+    ])
+    const cardConfig = (entityTemplate ?? globalTemplate)?.fieldConfig as any ?? null
+
     const result = await sendLeadToCoordinator(
       lead.businessUnit.coordinatorPhone,
       {
-        reqCode:          lead.reqCode,
-        requestDate:      lead.requestDate,
-        businessUnitName: lead.businessUnit.name,
-        companyName:      lead.companyName,
-        companyType:      lead.companyType,
-        contactName:      lead.contactName,
-        contactNumber:    lead.contactNumber,
-        contactEmail:     lead.contactEmail,
-        country:          lead.country,
-        city:             lead.city,
-        companySector:    lead.companySector,
-        leadRequest:      lead.leadRequest,
-        leadSource:       lead.leadSource,
+        reqCode:             lead.reqCode,
+        requestDate:         lead.requestDate,
+        businessUnitName:    lead.businessUnit.name,
+        companyName:         lead.companyName,
+        companyType:         lead.companyType,
+        contactName:         lead.contactName,
+        contactNumber:       lead.contactNumber,
+        contactEmail:        lead.contactEmail,
+        country:             lead.country,
+        city:                lead.city,
+        companySector:       lead.companySector,
+        leadRequest:         lead.leadRequest,
+        leadSource:          lead.leadSource,
         communicationChannel: lead.communicationChannel,
-        leadType:         lead.leadType,
-        directedToDeptName:   lead.directedToDept?.name,
-        marketingNotes:   lead.marketingNotes,
+        leadType:            lead.leadType,
+        directedToDeptName:  lead.directedToDept?.name,
+        marketingNotes:      lead.marketingNotes,
+        companyWebsite:      lead.companyWebsite,
+        referralFrom:        lead.referralFrom,
       },
       lead.businessUnit.coordinatorApiKey,
+      cardConfig,
     )
     waUrl = result.url
   }

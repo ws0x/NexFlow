@@ -48,19 +48,21 @@ model User {
 // ─── Business Units ──────────────────────────────────────────────────────────
 
 model BusinessUnit {
-  id               String   @id @default(cuid())
-  name             String
-  prefix           String   @unique
+  id                String   @id @default(cuid())
+  name              String
+  prefix            String   @unique
   coordinatorPhone  String?
-  coordinatorApiKey String?  // CallMeBot WhatsApp API key (per-phone, obtained from bot)
+  coordinatorApiKey String?
   isActive          Boolean  @default(true)
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
-  users       UserBusinessUnit[]
-  leads       Lead[]
-  departments Department[]
-  sequences   LeadSequence[]
+  users           UserBusinessUnit[]
+  leads           Lead[]
+  departments     Department[]
+  sequences       LeadSequence[]
+  dropdownOptions DropdownOption[]
+  cardTemplates   LeadCardTemplate[]
 
   @@map("business_units")
 }
@@ -198,20 +200,58 @@ model Notification {
 }
 
 // ─── Dropdown Options ────────────────────────────────────────────────────────
+// entityScope = 'GLOBAL' means this value applies to all entities.
+// entityScope = <businessUnitId> means entity-specific value.
+// This avoids NULL uniqueness issues in PostgreSQL.
 
 model DropdownOption {
-  id        String   @id @default(cuid())
-  category  String
-  value     String
-  valueAr   String?
-  order     Int      @default(0)
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id             String        @id @default(cuid())
+  category       String
+  value          String
+  valueAr        String?
+  order          Int           @default(0)
+  isActive       Boolean       @default(true)
+  entityScope    String        @default("GLOBAL") // 'GLOBAL' or businessUnitId
+  businessUnitId String?
+  businessUnit   BusinessUnit? @relation(fields: [businessUnitId], references: [id], onDelete: Cascade)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
 
-  @@unique([category, value])
-  @@index([category])
+  @@unique([category, value, entityScope])
+  @@index([category, entityScope])
   @@map("dropdown_options")
+}
+
+// ─── Field Permissions ────────────────────────────────────────────────────────
+// Flexible per-role per-field access control, managed from the Admin panel.
+// Falls back to hardcoded defaults if no record exists for a role/field pair.
+
+model FieldPermission {
+  id        String  @id @default(cuid())
+  role      Role
+  fieldName String
+  canView   Boolean @default(true)
+  canEdit   Boolean @default(false)
+
+  @@unique([role, fieldName])
+  @@map("field_permissions")
+}
+
+// ─── Lead Card Template ───────────────────────────────────────────────────────
+// Configures the WhatsApp "Send to Sales" card per entity (or globally).
+// entityScope = 'GLOBAL' for the default template.
+
+model LeadCardTemplate {
+  id             String        @id @default(cuid())
+  entityScope    String        @default("GLOBAL")
+  businessUnitId String?
+  businessUnit   BusinessUnit? @relation(fields: [businessUnitId], references: [id], onDelete: Cascade)
+  fieldConfig    Json          // { includedFields: string[], headerTitle: string, footerText: string }
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  @@unique([entityScope])
+  @@map("lead_card_templates")
 }
 
 // ─── Lead Sequences (REQ Code generation) ────────────────────────────────────
